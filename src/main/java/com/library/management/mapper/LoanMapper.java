@@ -1,0 +1,21 @@
+package com.library.management.mapper;
+
+import com.library.management.domain.entity.Loan;
+import com.library.management.dto.response.LoanResponse;
+import org.mapstruct.*;
+
+@Mapper(componentModel = "spring")
+public interface LoanMapper {
+
+    // Loan has nested objects (member, book) — we flatten them into the response
+    @Mapping(target = "memberId",       source = "member.id")
+    @Mapping(target = "memberFullName",
+            expression = "java(loan.getMember().getFirstName() + \" \" + loan.getMember().getLastName())"
+    )
+    @Mapping(target = "bookId",         source = "book.id")
+    @Mapping(target = "bookTitle",      source = "book.title")
+    LoanResponse toResponse(Loan loan);
+
+    // No toEntity here — Loan is always created programmatically in LoanService,
+    // never directly from a single DTO (it needs Member + Book entities)
+}

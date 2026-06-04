@@ -17,6 +17,8 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     // Count active loans for a member
     long countByMemberIdAndStatus(Long memberId, LoanStatus status);
 
+    List<Loan> findByMemberId(Long memberId);
+
     // Find overdue active loans (for scheduler)
     @Query("SELECT l FROM Loan l WHERE l.status = 'ACTIVE' AND l.dueDate < :today")
     List<Loan> findOverdueLoans(@Param("today") LocalDate today);

@@ -5,12 +5,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 // FineRepository.java
 public interface FineRepository extends JpaRepository<Fine, Long> {
 
     Optional<Fine> findByLoanId(Long loanId);
+
+    List<Fine> findByLoanMemberId(Long memberId);
 
     // Sum of unpaid fines for a member
     @Query("""
