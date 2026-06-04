@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: library-management-system
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/library-system
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  # ── JPA / Hibernate ───────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate             # Liquibase owns the schema; Hibernate only validates
+    show-sql: false                  # turn on locally if you need to debug queries
+    open-in-view: false              # best practice: don't keep session open through web layer
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+        jdbc:
+          batch_size: 20             # enables JDBC batching for bulk inserts/updates
+        order_inserts: true
+        order_updates: true
+
+  # ── Liquibase ─────────────────────────────────────────────────────
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+
+# ── Server ────────────────────────────────────────────────────────────
+server:
+  port: 8080
+  error:
+    include-message: always          # show error messages in responses (disable in prod)
+    include-binding-errors: always
+
+# ── Swagger / OpenAPI ─────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha               # sort endpoints alphabetically
+    operations-sorter: method        # group by HTTP method
+  api-docs:
+    path: /api-docs
+
+
+library:
+  loan:
+    max-books-per-member: 5          # Task 1:  max concurrent active loans per member
+    default-loan-days: 14            # days until due date when book is issued
+    max-extensions: 2                # Task 3:  how many times a loan can be extended
+    extension-days: 7                # days added to due date per extension
+
+  fine:
+    daily-rate: 500                  # tiyin per overdue day (500 = 5 so'm)
+    max-unpaid-threshold: 50000      # Task 2:  block member when unpaid fines exceed this
+
+  scheduler:
+    fine-update-cron: "0 0 1 * * *"  # Task 4:  runs daily at 01:00 AM
