@@ -12,6 +12,8 @@ import java.util.List;
 // BookRepository.java
 public interface BookRepository extends JpaRepository<Book, Long> {
 
+    boolean existsByIsbn(String isbn);
+
     // Task 7: search with pagination
     @Query("""
         SELECT b FROM Book b JOIN b.author a

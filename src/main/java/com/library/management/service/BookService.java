@@ -18,4 +18,6 @@ public interface BookService {
     BookResponse update(Long id, CreateBookRequest request);
 
     void delete(Long id);
+
+    BookResponse createByIsbn(String isbn, Long authorId, Integer totalCopies);
 }

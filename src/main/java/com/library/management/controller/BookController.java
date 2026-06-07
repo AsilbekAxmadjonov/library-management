@@ -74,4 +74,26 @@ public class BookController {
         bookService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/isbn/{isbn}")
+    @Operation(
+            summary = "Create book by ISBN lookup",
+            description = "Fetches book metadata from Open Library API using the ISBN, " +
+                    "then creates the book automatically. " +
+                    "Only authorId and totalCopies need to be provided manually."
+    )
+    public ResponseEntity<BookResponse> createByIsbn(
+            @Parameter(description = "ISBN-10 or ISBN-13", example = "978-0132350884")
+            @PathVariable String isbn,
+
+            @Parameter(description = "ID of the author in our system", example = "1")
+            @RequestParam Long authorId,
+
+            @Parameter(description = "Number of physical copies (default: 1)")
+            @RequestParam(required = false, defaultValue = "1") Integer totalCopies) {
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(bookService.createByIsbn(isbn, authorId, totalCopies));
+    }
 }
