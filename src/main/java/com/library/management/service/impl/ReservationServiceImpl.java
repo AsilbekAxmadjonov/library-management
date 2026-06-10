@@ -1,4 +1,3 @@
-// service/impl/ReservationServiceImpl.java
 package com.library.management.service.impl;
 
 import com.library.management.domain.entity.Book;
@@ -36,7 +35,6 @@ public class ReservationServiceImpl implements ReservationService {
     private final BookRepository bookRepository;
     private final ReservationMapper reservationMapper;
 
-    // ── RESERVE ────────────────────────────────────────────────────
     @Override
     public ReservationResponse reserve(Long memberId, Long bookId) {
         Member member = memberRepository.findById(memberId)
@@ -44,15 +42,13 @@ public class ReservationServiceImpl implements ReservationService {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> BusinessException.notFound("Book", bookId));
 
-        // Rule 1: blocked members cannot reserve
-        if (member.getStatus() == MemberStatus.BLOCKED) {
+        if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
+                || member.getStatus() == MemberStatus.BLOCKED_MANUALLY) {
             throw new BusinessException(ErrorCode.MEMBER_BLOCKED,
                     "Blocked members cannot reserve books",
                     HttpStatus.FORBIDDEN);
         }
 
-        // Rule 2: only reserve when no copies are available
-        // If copies are available → member should borrow directly
         if (book.getAvailableCopies() > 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "Book '" + book.getTitle() +
@@ -60,8 +56,6 @@ public class ReservationServiceImpl implements ReservationService {
                     HttpStatus.BAD_REQUEST);
         }
 
-        // Rule 3: member must not already be WAITING or NOTIFIED for this book
-        // Prevents the same member from joining the queue twice
         boolean alreadyWaiting = reservationRepository
                 .existsByMemberIdAndBookIdAndStatus(
                         memberId, bookId, ReservationStatus.WAITING);
@@ -75,13 +69,11 @@ public class ReservationServiceImpl implements ReservationService {
                     HttpStatus.CONFLICT);
         }
 
-        // All checks passed — create reservation
         Reservation reservation = new Reservation();
         reservation.setMember(member);
         reservation.setBook(book);
         reservation.setReservedAt(LocalDateTime.now());
         reservation.setStatus(ReservationStatus.WAITING);
-        // expiresAt is null — only set when status becomes NOTIFIED
 
         Reservation saved = reservationRepository.save(reservation);
 
@@ -91,20 +83,17 @@ public class ReservationServiceImpl implements ReservationService {
         return reservationMapper.toResponse(saved);
     }
 
-    // ── CANCEL ─────────────────────────────────────────────────────
     @Override
     public ReservationResponse cancel(Long reservationId, Long memberId) {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> BusinessException.notFound("Reservation", reservationId));
 
-        // Member can only cancel their own reservation
         if (!reservation.getMember().getId().equals(memberId)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "You can only cancel your own reservations",
                     HttpStatus.FORBIDDEN);
         }
 
-        // Cannot cancel terminal states
         if (reservation.getStatus() == ReservationStatus.FULFILLED) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "Cannot cancel a fulfilled reservation",
@@ -116,8 +105,6 @@ public class ReservationServiceImpl implements ReservationService {
                     HttpStatus.CONFLICT);
         }
 
-        // Remember the old status before changing it
-        // We need this to decide whether to notify next in queue
         ReservationStatus previousStatus = reservation.getStatus();
 
         reservation.setStatus(ReservationStatus.CANCELLED);
@@ -126,8 +113,6 @@ public class ReservationServiceImpl implements ReservationService {
         log.info("Reservation cancelled: reservationId={} memberId={} previousStatus={}",
                 reservationId, memberId, previousStatus);
 
-        // If a NOTIFIED member cancels → they had an active slot
-        // The book is still available → notify the next WAITING member
         if (previousStatus == ReservationStatus.NOTIFIED) {
             notifyNextInQueue(reservation.getBook());
         }
@@ -135,7 +120,6 @@ public class ReservationServiceImpl implements ReservationService {
         return reservationMapper.toResponse(reservation);
     }
 
-    // ── GET MEMBER RESERVATIONS ────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public List<ReservationResponse> getMemberReservations(Long memberId) {
@@ -148,10 +132,6 @@ public class ReservationServiceImpl implements ReservationService {
                 .toList();
     }
 
-    // ── FULFILL ────────────────────────────────────────────────────
-    // Called by LoanServiceImpl.issueLoan()
-    // When a notified member actually comes and borrows the book
-    // their reservation must be closed as FULFILLED
     @Override
     public void fulfillReservation(Long memberId, Long bookId) {
         reservationRepository
@@ -163,20 +143,12 @@ public class ReservationServiceImpl implements ReservationService {
                     log.info("Reservation fulfilled: reservationId={} memberId={} bookId={}",
                             reservation.getId(), memberId, bookId);
                 });
-        // No NOTIFIED reservation found is fine —
-        // member might be borrowing without having reserved first
     }
 
-    // ── NOTIFY NEXT IN QUEUE ───────────────────────────────────────
-    // Called by:
-    //   1. LoanServiceImpl.returnBook()  → book just became available
-    //   2. cancel()                      → NOTIFIED member gave up their slot
-    //   3. expireNotifications()         → NOTIFIED member's deadline passed
     @Override
     public void notifyNextInQueue(Book book) {
         reservationRepository
-                .findFirstByBookIdAndStatusOrderByReservedAtAsc(
-                        book.getId(), ReservationStatus.WAITING)
+                .findFirstByBookIdAndStatusOrderByReservedAtAsc(book.getId())
                 .ifPresent(next -> {
                     next.setStatus(ReservationStatus.NOTIFIED);
                     next.setExpiresAt(LocalDate.now().plusDays(3));
@@ -188,10 +160,6 @@ public class ReservationServiceImpl implements ReservationService {
                 });
     }
 
-    // ── EXPIRE NOTIFICATIONS (Scheduler) ──────────────────────────
-    // Runs daily at same time as fine update job
-    // Finds NOTIFIED reservations whose 3-day deadline has passed
-    // Cancels them and passes the slot to the next WAITING member
     @Override
     @Scheduled(cron = "${library.scheduler.fine-update-cron}")
     public void expireNotifications() {
@@ -212,20 +180,10 @@ public class ReservationServiceImpl implements ReservationService {
                     reservation.getBook().getId(),
                     reservation.getExpiresAt());
 
-            // Pass the slot to the next person in line
             notifyNextInQueue(reservation.getBook());
         }
 
         log.info("=== Reservation expiry check done. Expired: {} ===",
                 expired.size());
-    }
-
-    // ══════════════════════════════════════════════════════════════
-    // PRIVATE HELPERS
-    // ══════════════════════════════════════════════════════════════
-
-    private Reservation findById(Long id) {
-        return reservationRepository.findById(id)
-                .orElseThrow(() -> BusinessException.notFound("Reservation", id));
     }
 }

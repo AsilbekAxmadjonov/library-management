@@ -1,6 +1,3 @@
--- 003-create-books.sql
---liquibase formatted sql
---changeset library:003-books
 
 CREATE SEQUENCE books_seq START WITH 1 INCREMENT BY 50;
 

@@ -81,7 +81,7 @@ library:
       max-unpaid-threshold: 100000
 
   scheduler:
-    fine-update-cron: ${LIBRARY_SCHEDULER_FINE_UPDATE_CRON:"0 0 1 * * *"}
+    fine-update-cron: ${LIBRARY_SCHEDULER_FINE_UPDATE_CRON:0 0 1 * * *}
 
   isbn-lookup:
     timeout-seconds: 5

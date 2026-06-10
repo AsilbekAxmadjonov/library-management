@@ -1,7 +1,3 @@
--- 005-create-fines.sql
---liquibase formatted sql
---changeset library:005-fines
-
 CREATE SEQUENCE fines_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE fines (

@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-// service/impl/MemberServiceImpl.java
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -36,7 +35,6 @@ public class MemberServiceImpl implements MemberService {
                     HttpStatus.CONFLICT);
         }
         Member member = memberMapper.toEntity(request);
-        // type defaults to STANDARD if not provided
         if (member.getType() == null) member.setType(MemberType.STANDARD);
         Member saved = memberRepository.save(member);
         log.info("Member created: id={} email={}", saved.getId(), saved.getEmail());
@@ -61,7 +59,6 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public MemberResponse update(Long id, CreateMemberRequest request) {
         Member member = findById(id);
-        // If email is being changed, check it's not taken by someone else
         if (!member.getEmail().equals(request.email())
                 && memberRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
@@ -75,7 +72,7 @@ public class MemberServiceImpl implements MemberService {
     @Override
     public MemberResponse block(Long id) {
         Member member = findById(id);
-        member.setStatus(MemberStatus.BLOCKED);
+        member.setStatus(MemberStatus.BLOCKED_MANUALLY);
         log.info("Member manually blocked: id={}", id);
         return memberMapper.toResponse(memberRepository.save(member));
     }
@@ -84,7 +81,7 @@ public class MemberServiceImpl implements MemberService {
     public MemberResponse activate(Long id) {
         Member member = findById(id);
         member.setStatus(MemberStatus.ACTIVE);
-        log.info("Member activated: id={}", id);
+        log.info("Member manually activated: id={}", id);
         return memberMapper.toResponse(memberRepository.save(member));
     }
 

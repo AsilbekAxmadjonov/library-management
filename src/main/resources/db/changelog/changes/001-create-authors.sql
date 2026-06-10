@@ -1,6 +1,4 @@
--- 001-create-authors.sql
---liquibase formatted sql
---changeset library:001-authors
+
 
 CREATE SEQUENCE authors_seq START WITH 1 INCREMENT BY 50;
 

@@ -11,5 +11,8 @@
     <include file="db/changelog/changes/004-create-loans.sql"/>
     <include file="db/changelog/changes/005-create-fines.sql"/>
     <include file="db/changelog/changes/006-create-reservations.sql"/>
+    <include file="db/changelog/changes/007-add-version-columns.sql"/>
+    <include file="db/changelog/changes/008-add-reservation-unique-constraint.sql"/>
+    <include file="db/changelog/changes/009-update-member-status.sql"/>
 
 </databaseChangeLog>

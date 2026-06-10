@@ -19,8 +19,6 @@ import java.util.Map;
 @Slf4j
 public class IsbnLookupServiceImpl implements IsbnLookupService {
 
-    // RestClient is Spring Boot 3.2+'s modern HTTP client
-    // We configure it in a @Bean — injected here
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
@@ -33,9 +31,6 @@ public class IsbnLookupServiceImpl implements IsbnLookupService {
         try {
             log.info("Fetching book data for ISBN: {}", isbn);
 
-            // Call Open Library API
-            // Response is a Map where the key is "ISBN:978-xxx"
-            // and the value is the book data object
             String responseJson = restClient.get()
                     .uri(OPEN_LIBRARY_URL, isbn)
                     .retrieve()
@@ -46,7 +41,6 @@ public class IsbnLookupServiceImpl implements IsbnLookupService {
                 return null;
             }
 
-            // Parse the outer map — key is "ISBN:{isbn}"
             Map<String, Object> responseMap = objectMapper.readValue(
                     responseJson,
                     objectMapper.getTypeFactory()
@@ -59,7 +53,6 @@ public class IsbnLookupServiceImpl implements IsbnLookupService {
                 return null;
             }
 
-            // Convert the inner object to our DTO
             Object bookData = responseMap.get(key);
             String bookJson = objectMapper.writeValueAsString(bookData);
             OpenLibraryBookDto dto = objectMapper.readValue(

@@ -1,4 +1,3 @@
-// service/impl/LoanServiceImpl.java
 package com.library.management.service.impl;
 
 import com.library.management.config.LibraryProperties;
@@ -47,7 +46,6 @@ public class LoanServiceImpl implements LoanService {
     private final LoanMapper loanMapper;
     private final LibraryProperties props;
 
-    // ── ISSUE LOAN ─────────────────────────────────────────────────
     @Override
     public LoanResponse issueLoan(IssueLoanRequest request) {
         Member member = findMember(request.memberId());
@@ -56,11 +54,9 @@ public class LoanServiceImpl implements LoanService {
         validateMemberCanBorrow(member);
         validateBookAvailable(book);
 
-        // Decrement available copies
         book.setAvailableCopies(book.getAvailableCopies() - 1);
         bookRepository.save(book);
 
-        // Create the loan
         Loan loan = new Loan();
         loan.setMember(member);
         loan.setBook(book);
@@ -72,7 +68,6 @@ public class LoanServiceImpl implements LoanService {
 
         Loan saved = loanRepository.save(loan);
 
-        // If this member had a NOTIFIED reservation for this book → mark FULFILLED
         reservationService.fulfillReservation(member.getId(), book.getId());
 
         log.info("Loan issued: loanId={} memberId={} bookId={} memberType={} due={}",
@@ -82,7 +77,6 @@ public class LoanServiceImpl implements LoanService {
         return loanMapper.toResponse(saved);
     }
 
-    // ── RETURN BOOK ────────────────────────────────────────────────
     @Override
     public LoanResponse returnBook(Long loanId) {
         Loan loan = findLoan(loanId);
@@ -96,19 +90,16 @@ public class LoanServiceImpl implements LoanService {
         loan.setReturnDate(LocalDate.now());
         loan.setStatus(LoanStatus.RETURNED);
 
-        // Restore available copies
         Book book = loan.getBook();
         book.setAvailableCopies(book.getAvailableCopies() + 1);
         bookRepository.save(book);
 
-        // Calculate fine if overdue — respects member type (grace period + daily rate)
         if (loan.isOverdue()) {
             createOrUpdateFine(loan);
         }
 
         loanRepository.save(loan);
 
-        // Notify first WAITING member in reservation queue
         reservationService.notifyNextInQueue(book);
 
         log.info("Book returned: loanId={} memberId={} memberType={} overdue={}",
@@ -118,23 +109,19 @@ public class LoanServiceImpl implements LoanService {
         return loanMapper.toResponse(loan);
     }
 
-    // ── EXTEND LOAN ────────────────────────────────────────────────
     @Override
     public LoanResponse extendLoan(Long loanId) {
         Loan loan = findLoan(loanId);
         Member member = loan.getMember();
 
-        // Resolve this member's type config
         MemberTypeConfig config = props.configFor(member.getType());
 
-        // Cannot extend a returned loan
         if (loan.getStatus() == LoanStatus.RETURNED) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend a returned loan",
                     HttpStatus.CONFLICT);
         }
 
-        // Cannot extend an overdue loan
         if (loan.isOverdue()) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend an overdue loan — please return and pay the fine",
@@ -149,7 +136,6 @@ public class LoanServiceImpl implements LoanService {
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        // Cannot extend if other members are waiting for this book
         boolean hasQueue = reservationRepository
                 .existsByBookIdAndStatus(
                         loan.getBook().getId(), ReservationStatus.WAITING);
@@ -171,14 +157,12 @@ public class LoanServiceImpl implements LoanService {
         return loanMapper.toResponse(loanRepository.save(loan));
     }
 
-    // ── GET BY ID ──────────────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public LoanResponse getById(Long id) {
         return loanMapper.toResponse(findLoan(id));
     }
 
-    // ── GET MEMBER LOANS ───────────────────────────────────────────
     @Override
     @Transactional(readOnly = true)
     public List<LoanResponse> getMemberLoans(Long memberId) {
@@ -189,24 +173,17 @@ public class LoanServiceImpl implements LoanService {
                 .toList();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // PRIVATE HELPERS
-    // ══════════════════════════════════════════════════════════════
-
-    // ── Validate member is allowed to borrow ───────────────────────
     private void validateMemberCanBorrow(Member member) {
 
-        // Rule 1: member must be ACTIVE
-        if (member.getStatus() == MemberStatus.BLOCKED) {
+        if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
+                || member.getStatus() == MemberStatus.BLOCKED_MANUALLY) {
             throw new BusinessException(ErrorCode.MEMBER_BLOCKED,
                     "Member is blocked and cannot borrow books",
                     HttpStatus.FORBIDDEN);
         }
 
-        // Resolve config for THIS member's type
         MemberTypeConfig config = props.configFor(member.getType());
 
-        // Rule 2: active loan count must be below member-type limit
         long activeLoans = loanRepository
                 .countByMemberIdAndStatus(member.getId(), LoanStatus.ACTIVE);
         if (activeLoans >= config.getMaxBooks()) {
@@ -216,18 +193,14 @@ public class LoanServiceImpl implements LoanService {
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        // Rule 3: unpaid fines must be below member-type threshold
-        long unpaidFines = fineRepository
-                .sumUnpaidFinesByMemberId(member.getId());
+        long unpaidFines = fineRepository.sumUnpaidFinesByMemberId(member.getId());
         if (unpaidFines > config.getMaxUnpaidThreshold()) {
             throw new BusinessException(ErrorCode.FINE_LIMIT_EXCEEDED,
-                    "Unpaid fines (" + unpaidFines + " tiyin) exceed the " +
-                            "threshold for member type: " + member.getType(),
+                    "Unpaid fines exceed the threshold for member type: " + member.getType(),
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
     }
 
-    // ── Validate book has available copies ─────────────────────────
     private void validateBookAvailable(Book book) {
         if (book.getAvailableCopies() <= 0) {
             throw new BusinessException(ErrorCode.NO_COPIES_AVAILABLE,
@@ -236,8 +209,6 @@ public class LoanServiceImpl implements LoanService {
         }
     }
 
-    // ── Calculate fine — respects member type ──────────────────────
-    // Called when book is returned overdue
     private void createOrUpdateFine(Loan loan) {
         MemberTypeConfig config = props.configFor(loan.getMember().getType());
 
@@ -285,7 +256,6 @@ public class LoanServiceImpl implements LoanService {
                 billableDays, config.getDailyRate(), amount);
     }
 
-    // ── Entity finders ─────────────────────────────────────────────
     private Loan findLoan(Long id) {
         return loanRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("Loan", id));

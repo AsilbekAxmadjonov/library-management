@@ -1,6 +1,4 @@
--- 004-create-loans.sql
---liquibase formatted sql
---changeset library:004-loans
+
 
 CREATE SEQUENCE loans_seq START WITH 1 INCREMENT BY 50;
 

@@ -18,6 +18,14 @@ public class FineController {
 
     private final FineService fineService;
 
+    // FineController.java — temporary test endpoint
+    @PostMapping("/trigger-scheduler")
+    @Operation(summary = "TESTING ONLY — manually trigger fine update job")
+    public ResponseEntity<String> triggerScheduler() {
+        fineService.runDailyFineUpdate();
+        return ResponseEntity.ok("Scheduler triggered successfully");
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get fine by ID")
     public ResponseEntity<FineResponse> getById(@PathVariable Long id) {

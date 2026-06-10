@@ -1,0 +1,4 @@
+
+ALTER TABLE members ALTER COLUMN status TYPE VARCHAR(30);
+
+UPDATE members SET status = 'BLOCKED_BY_FINES' WHERE status = 'BLOCKED';
