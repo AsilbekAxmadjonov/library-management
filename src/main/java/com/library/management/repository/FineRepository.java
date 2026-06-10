@@ -8,14 +8,12 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-// FineRepository.java
 public interface FineRepository extends JpaRepository<Fine, Long> {
 
     Optional<Fine> findByLoanId(Long loanId);
 
     List<Fine> findByLoanMemberId(Long memberId);
 
-    // Sum of unpaid fines for a member
     @Query("""
         SELECT COALESCE(SUM(f.amount), 0) 
         FROM Fine f 
@@ -23,7 +21,6 @@ public interface FineRepository extends JpaRepository<Fine, Long> {
     """)
     long sumUnpaidFinesByMemberId(@Param("memberId") Long memberId);
 
-    // For reports
     @Query("SELECT COUNT(f), SUM(f.amount), SUM(CASE WHEN f.status='PAID' THEN f.amount ELSE 0 END) FROM Fine f")
     Object[] getFineStats();
 }

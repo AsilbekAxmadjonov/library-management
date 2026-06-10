@@ -1,6 +1,5 @@
 package com.library.management.exception;
 
-// exception/ErrorCode.java
 public enum ErrorCode {
     RESOURCE_NOT_FOUND,
     MEMBER_BLOCKED,

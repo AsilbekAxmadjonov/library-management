@@ -105,12 +105,7 @@
                     </excludes>
                 </configuration>
             </plugin>
-
-            <!--
-                CRITICAL ORDER: Lombok MUST come before MapStruct.
-                MapStruct reads the getters/setters that Lombok generates.
-                If the order is reversed, MapStruct sees empty classes → broken mappers.
-            -->
+          
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
