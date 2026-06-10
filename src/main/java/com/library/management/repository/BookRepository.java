@@ -9,10 +9,10 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-// BookRepository.java
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    // Task 7: search with pagination
+    boolean existsByIsbn(String isbn);
+
     @Query("""
         SELECT b FROM Book b JOIN b.author a
         WHERE (:title IS NULL OR LOWER(b.title) LIKE LOWER(CONCAT('%', :title, '%')))
@@ -27,7 +27,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             Pageable pageable
     );
 
-    // Task 6 report: most read books
     @Query("""
         SELECT b, COUNT(l) as loanCount 
         FROM Book b LEFT JOIN b.loans l 
