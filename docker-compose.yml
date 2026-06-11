@@ -1,6 +1,5 @@
 services:
 
-  # ── PostgreSQL Database ──────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: library-postgres
@@ -64,7 +63,6 @@ services:
       retries: 3
       start_period: 40s
 
-  # ── pgAdmin — PostgreSQL GUI (optional, useful for development) ──
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: library-pgadmin
@@ -81,12 +79,10 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 
-# ── Named volumes — data persists even if containers are removed ──
 volumes:
   postgres_data:
   pgadmin_data:
 
-# ── Network — containers talk to each other by service name ───────
 networks:
   library-network:
     driver: bridge

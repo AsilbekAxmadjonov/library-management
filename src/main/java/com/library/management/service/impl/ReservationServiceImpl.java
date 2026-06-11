@@ -51,8 +51,7 @@ public class ReservationServiceImpl implements ReservationService {
 
         if (book.getAvailableCopies() > 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
-                    "Book '" + book.getTitle() +
-                            "' has available copies — borrow it directly instead of reserving",
+                    "Book has available copies — borrow it directly",
                     HttpStatus.BAD_REQUEST);
         }
 
@@ -76,9 +75,8 @@ public class ReservationServiceImpl implements ReservationService {
         reservation.setStatus(ReservationStatus.WAITING);
 
         Reservation saved = reservationRepository.save(reservation);
-
-        log.info("Reservation created: reservationId={} memberId={} bookId={} memberType={}",
-                saved.getId(), memberId, bookId, member.getType());
+        log.info("Reservation created: reservationId={} memberId={} bookId={}",
+                saved.getId(), memberId, bookId);
 
         return reservationMapper.toResponse(saved);
     }
@@ -106,15 +104,21 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         ReservationStatus previousStatus = reservation.getStatus();
-
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservationRepository.save(reservation);
 
-        log.info("Reservation cancelled: reservationId={} memberId={} previousStatus={}",
+        log.info("Reservation cancelled: id={} memberId={} previousStatus={}",
                 reservationId, memberId, previousStatus);
 
         if (previousStatus == ReservationStatus.NOTIFIED) {
-            notifyNextInQueue(reservation.getBook());
+            Book book = reservation.getBook();
+            book.setAvailableCopies(book.getAvailableCopies() + 1);
+            bookRepository.save(book);
+            log.info("Available copies restored after NOTIFIED cancellation: " +
+                            "bookId={} newAvailable={}",
+                    book.getId(), book.getAvailableCopies());
+
+            notifyNextInQueue(book);
         }
 
         return reservationMapper.toResponse(reservation);
@@ -153,10 +157,15 @@ public class ReservationServiceImpl implements ReservationService {
                     next.setStatus(ReservationStatus.NOTIFIED);
                     next.setExpiresAt(LocalDate.now().plusDays(3));
                     reservationRepository.save(next);
+
+                    book.setAvailableCopies(book.getAvailableCopies() - 1);
+                    bookRepository.save(book);
+
                     log.info("Next in queue notified: reservationId={} memberId={} " +
-                                    "bookId={} expiresAt={}",
+                                    "bookId={} expiresAt={} availableCopies={}",
                             next.getId(), next.getMember().getId(),
-                            book.getId(), next.getExpiresAt());
+                            book.getId(), next.getExpiresAt(),
+                            book.getAvailableCopies());
                 });
     }
 
@@ -173,17 +182,20 @@ public class ReservationServiceImpl implements ReservationService {
             reservation.setStatus(ReservationStatus.CANCELLED);
             reservationRepository.save(reservation);
 
-            log.info("Reservation expired: reservationId={} memberId={} bookId={} " +
-                            "expiredOn={}",
+            log.info("Reservation expired: id={} memberId={} bookId={}",
                     reservation.getId(),
                     reservation.getMember().getId(),
-                    reservation.getBook().getId(),
-                    reservation.getExpiresAt());
+                    reservation.getBook().getId());
 
-            notifyNextInQueue(reservation.getBook());
+            Book book = reservation.getBook();
+            book.setAvailableCopies(book.getAvailableCopies() + 1);
+            bookRepository.save(book);
+            log.info("Available copies restored after expiry: bookId={} newAvailable={}",
+                    book.getId(), book.getAvailableCopies());
+
+            notifyNextInQueue(book);
         }
 
-        log.info("=== Reservation expiry check done. Expired: {} ===",
-                expired.size());
+        log.info("=== Reservation expiry done. Expired: {} ===", expired.size());
     }
 }

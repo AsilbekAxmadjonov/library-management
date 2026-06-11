@@ -42,14 +42,22 @@ public class Loan extends BaseEntity {
     @OneToOne(mappedBy = "loan", cascade = CascadeType.ALL)
     private Fine fine;
 
-    public boolean isOverdue() {
-        LocalDate checkDate = returnDate != null ? returnDate : LocalDate.now();
+    public boolean isOverdue(LocalDate today) {
+        LocalDate checkDate = returnDate != null ? returnDate : today;
         return checkDate.isAfter(dueDate);
     }
 
-    public long overdueDays() {
-        if (!isOverdue()) return 0;
-        LocalDate checkDate = returnDate != null ? returnDate : LocalDate.now();
+    public long overdueDays(LocalDate today) {
+        if (!isOverdue(today)) return 0;
+        LocalDate checkDate = returnDate != null ? returnDate : today;
         return ChronoUnit.DAYS.between(dueDate, checkDate);
+    }
+
+    public boolean isOverdue() {
+        return isOverdue(LocalDate.now());
+    }
+
+    public long overdueDays() {
+        return overdueDays(LocalDate.now());
     }
 }

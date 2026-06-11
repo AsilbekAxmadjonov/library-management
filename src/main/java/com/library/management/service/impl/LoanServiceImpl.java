@@ -28,8 +28,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,7 @@ public class LoanServiceImpl implements LoanService {
     private final ReservationService reservationService;
     private final LoanMapper loanMapper;
     private final LibraryProperties props;
+    private final Clock clock;
 
     @Override
     public LoanResponse issueLoan(IssueLoanRequest request) {
@@ -57,17 +60,17 @@ public class LoanServiceImpl implements LoanService {
         book.setAvailableCopies(book.getAvailableCopies() - 1);
         bookRepository.save(book);
 
+        LocalDate today = LocalDate.now(clock);
+
         Loan loan = new Loan();
         loan.setMember(member);
         loan.setBook(book);
-        loan.setLoanDate(LocalDate.now());
-        loan.setDueDate(LocalDate.now()
-                .plusDays(props.getLoan().getDefaultLoanDays()));
+        loan.setLoanDate(today);
+        loan.setDueDate(today.plusDays(props.getLoan().getDefaultLoanDays()));
         loan.setStatus(LoanStatus.ACTIVE);
         loan.setExtensionCount(0);
 
         Loan saved = loanRepository.save(loan);
-
         reservationService.fulfillReservation(member.getId(), book.getId());
 
         log.info("Loan issued: loanId={} memberId={} bookId={} memberType={} due={}",
@@ -87,24 +90,25 @@ public class LoanServiceImpl implements LoanService {
                     HttpStatus.CONFLICT);
         }
 
-        loan.setReturnDate(LocalDate.now());
+        LocalDate today = LocalDate.now(clock);
+
+        loan.setReturnDate(today);
         loan.setStatus(LoanStatus.RETURNED);
 
         Book book = loan.getBook();
         book.setAvailableCopies(book.getAvailableCopies() + 1);
         bookRepository.save(book);
 
-        if (loan.isOverdue()) {
-            createOrUpdateFine(loan);
+        if (loan.isOverdue(today)) {
+            createOrUpdateFine(loan, today);
         }
 
         loanRepository.save(loan);
-
         reservationService.notifyNextInQueue(book);
 
         log.info("Book returned: loanId={} memberId={} memberType={} overdue={}",
                 loanId, loan.getMember().getId(),
-                loan.getMember().getType(), loan.isOverdue());
+                loan.getMember().getType(), loan.isOverdue(today));
 
         return loanMapper.toResponse(loan);
     }
@@ -113,22 +117,19 @@ public class LoanServiceImpl implements LoanService {
     public LoanResponse extendLoan(Long loanId) {
         Loan loan = findLoan(loanId);
         Member member = loan.getMember();
-
         MemberTypeConfig config = props.configFor(member.getType());
+
+        LocalDate today = LocalDate.now(clock);  // W2 FIX
 
         if (loan.getStatus() == LoanStatus.RETURNED) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
-                    "Cannot extend a returned loan",
-                    HttpStatus.CONFLICT);
+                    "Cannot extend a returned loan", HttpStatus.CONFLICT);
         }
-
-        if (loan.isOverdue()) {
+        if (loan.isOverdue(today)) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
-                    "Cannot extend an overdue loan — please return and pay the fine",
+                    "Cannot extend an overdue loan",
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
-
-        // Cannot exceed member-type-specific max extensions
         if (loan.getExtensionCount() >= config.getMaxExtensions()) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Maximum extensions (" + config.getMaxExtensions() +
@@ -136,9 +137,12 @@ public class LoanServiceImpl implements LoanService {
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
 
-        boolean hasQueue = reservationRepository
-                .existsByBookIdAndStatus(
-                        loan.getBook().getId(), ReservationStatus.WAITING);
+        boolean hasQueue =
+                reservationRepository.existsByBookIdAndStatus(
+                        loan.getBook().getId(), ReservationStatus.WAITING)
+                        || reservationRepository.existsByBookIdAndStatus(
+                        loan.getBook().getId(), ReservationStatus.NOTIFIED);
+
         if (hasQueue) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend: other members are waiting for this book",
@@ -166,7 +170,7 @@ public class LoanServiceImpl implements LoanService {
     @Override
     @Transactional(readOnly = true)
     public List<LoanResponse> getMemberLoans(Long memberId) {
-        findMember(memberId); // validates member exists → 404 if not
+        findMember(memberId);
         return loanRepository.findByMemberId(memberId)
                 .stream()
                 .map(loanMapper::toResponse)
@@ -174,7 +178,6 @@ public class LoanServiceImpl implements LoanService {
     }
 
     private void validateMemberCanBorrow(Member member) {
-
         if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
                 || member.getStatus() == MemberStatus.BLOCKED_MANUALLY) {
             throw new BusinessException(ErrorCode.MEMBER_BLOCKED,
@@ -209,51 +212,42 @@ public class LoanServiceImpl implements LoanService {
         }
     }
 
-    private void createOrUpdateFine(Loan loan) {
+    private void createOrUpdateFine(Loan loan, LocalDate today) {
         MemberTypeConfig config = props.configFor(loan.getMember().getType());
 
-        long overdueDays  = loan.overdueDays();
-
-        // Subtract grace period:
-        // STANDARD = 0 free days
-        // STUDENT  = 2 free days  ← fine only starts from day 3
-        // PREMIUM  = 1 free day   ← fine only starts from day 2
+        long overdueDays = loan.overdueDays(today);
         long billableDays = overdueDays - config.getGracePeriodDays();
 
-        // Still within grace period — no fine
         if (billableDays <= 0) {
-            log.info("Loan {} returned within grace period ({} days) — no fine. " +
-                            "memberType={}",
-                    loan.getId(), config.getGracePeriodDays(),
-                    loan.getMember().getType());
+            log.info("Loan {} within grace period — no fine. memberType={}",
+                    loan.getId(), loan.getMember().getType());
             return;
         }
 
-        // billableDays × dailyRate for this member type
         long amount = billableDays * config.getDailyRate();
-
-        // Cap fine at book price if the book has a price set
         if (loan.getBook().getPrice() != null) {
             amount = Math.min(amount, loan.getBook().getPrice());
         }
 
-        // Create new fine or update existing one (idempotent)
-        Fine fine = fineRepository
-                .findByLoanId(loan.getId())
-                .orElse(new Fine());
+        Optional<Fine> existingOpt = fineRepository.findByLoanId(loan.getId());
 
+        if (existingOpt.isPresent()
+                && existingOpt.get().getCalculatedUpTo().equals(today)) {
+            log.info("Fine already calculated today for loanId={} — skipping",
+                    loan.getId());
+            return;
+        }
+
+        Fine fine = existingOpt.orElse(new Fine());
         fine.setLoan(loan);
         fine.setAmount(amount);
         fine.setStatus(FineStatus.PENDING);
-        fine.setCalculatedUpTo(LocalDate.now());
+        fine.setCalculatedUpTo(today);
         fineRepository.save(fine);
 
-        log.info("Fine created/updated on return: loanId={} memberType={} " +
-                        "overdueDays={} gracePeriod={} billableDays={} " +
-                        "dailyRate={} amount={}",
-                loan.getId(), loan.getMember().getType(),
-                overdueDays, config.getGracePeriodDays(),
-                billableDays, config.getDailyRate(), amount);
+        log.info("Fine saved on return: loanId={} memberType={} " +
+                        "billableDays={} amount={}",
+                loan.getId(), loan.getMember().getType(), billableDays, amount);
     }
 
     private Loan findLoan(Long id) {

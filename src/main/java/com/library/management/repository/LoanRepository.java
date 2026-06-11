@@ -24,6 +24,11 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
     """)
     List<Loan> findOverdueLoans(@Param("today") LocalDate today);
 
-    @Query("SELECT DISTINCT l.member FROM Loan l WHERE l.status = 'OVERDUE'")
-    List<Member> findMembersWithOverdueLoans();
+    @Query("""
+        SELECT DISTINCT l.member FROM Loan l
+        WHERE l.returnDate IS NULL
+        AND l.dueDate < :today
+        AND l.status IN ('ACTIVE', 'OVERDUE')
+    """)
+    List<Member> findMembersWithOverdueLoans(@Param("today") LocalDate today);
 }

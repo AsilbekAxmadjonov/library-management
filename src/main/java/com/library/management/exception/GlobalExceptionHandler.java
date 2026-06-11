@@ -64,6 +64,17 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException ex, HttpServletRequest request) {
         log.warn("Data integrity violation: {} | path={}",
                 ex.getMostSpecificCause().getMessage(), request.getRequestURI());
+
+        String message = ex.getMostSpecificCause().getMessage();
+        if (message != null && message.contains("isbn")) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of(
+                            ErrorCode.DUPLICATE_RESOURCE,
+                            "A book with this ISBN already exists"
+                    ));
+        }
+
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(
