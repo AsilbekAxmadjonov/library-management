@@ -192,7 +192,7 @@ public class LoanServiceImpl implements LoanService {
         validateMemberCanBorrow(member);
         validateBookReserved(book);
 
-        book.setAvailableCopies(book.getReservedCopies() - 1);
+        book.setReservedCopies(book.getReservedCopies() - 1);
         bookRepository.save(book);
 
         LocalDate today = LocalDate.now(clock);

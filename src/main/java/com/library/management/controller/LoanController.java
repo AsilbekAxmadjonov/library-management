@@ -70,7 +70,7 @@ public class LoanController {
             description = "Validates member status, loan limit, fine threshold and book availability"
     )
     public ResponseEntity<LoanResponse> issueNotifiedMember(
-            @RequestParam IssueLoanRequest request
+            @Valid @RequestBody IssueLoanRequest request
     ) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
