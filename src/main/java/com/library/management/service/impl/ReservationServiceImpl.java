@@ -163,6 +163,7 @@ public class ReservationServiceImpl implements ReservationService {
                     reservationRepository.save(next);
 
                     freshBook.setAvailableCopies(freshBook.getAvailableCopies() - 1);
+                    freshBook.setReservedCopies(freshBook.getReservedCopies() + 1);
                     bookRepository.save(freshBook);
 
                     log.info("Next in queue notified: reservationId={} memberId={} " +

@@ -47,4 +47,13 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
         AND r.expiresAt < :today
     """)
     List<Reservation> findExpiredNotifications(@Param("today") LocalDate today);
+
+    @Query(value = """
+        select * from reservations where member_id = :member_id and book_id = :book_id and status = :status
+    """, nativeQuery = true)
+    Optional<Reservation> findReservation(
+            @Param("member_id") Long memberId,
+            @Param("book_id") Long bookId,
+            @Param("status") String status
+    );
 }

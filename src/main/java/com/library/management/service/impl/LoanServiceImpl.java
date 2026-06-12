@@ -2,10 +2,7 @@ package com.library.management.service.impl;
 
 import com.library.management.config.LibraryProperties;
 import com.library.management.config.LibraryProperties.MemberTypeConfig;
-import com.library.management.domain.entity.Book;
-import com.library.management.domain.entity.Fine;
-import com.library.management.domain.entity.Loan;
-import com.library.management.domain.entity.Member;
+import com.library.management.domain.entity.*;
 import com.library.management.domain.enums.FineStatus;
 import com.library.management.domain.enums.LoanStatus;
 import com.library.management.domain.enums.MemberStatus;
@@ -25,6 +22,7 @@ import com.library.management.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -177,6 +175,46 @@ public class LoanServiceImpl implements LoanService {
                 .toList();
     }
 
+    @Override
+    public LoanResponse issueNotifiedMember(IssueLoanRequest request) {
+        Member member = findMember(request.memberId());
+        Book book = findBook(request.bookId());
+
+        Optional<Reservation> reservation = reservationRepository.findReservation(member.getId(), book.getId(), ReservationStatus.NOTIFIED.name());
+
+        if (reservation.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.RESOURCE_NOT_FOUND,
+                    "Reservation not found",
+                    HttpStatus.NOT_FOUND);
+        }
+
+        validateMemberCanBorrow(member);
+        validateBookReserved(book);
+
+        book.setAvailableCopies(book.getReservedCopies() - 1);
+        bookRepository.save(book);
+
+        LocalDate today = LocalDate.now(clock);
+
+        Loan loan = new Loan();
+        loan.setMember(member);
+        loan.setBook(book);
+        loan.setLoanDate(today);
+        loan.setDueDate(today.plusDays(props.getLoan().getDefaultLoanDays()));
+        loan.setStatus(LoanStatus.ACTIVE);
+        loan.setExtensionCount(0);
+
+        Loan saved = loanRepository.save(loan);
+        reservationService.fulfillReservation(member.getId(), book.getId());
+
+        log.info("Loan issued: loanId={} memberId={} bookId={} memberType={} due={}",
+                saved.getId(), member.getId(), book.getId(),
+                member.getType(), saved.getDueDate());
+
+        return loanMapper.toResponse(saved);
+    }
+
     private void validateMemberCanBorrow(Member member) {
         if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
                 || member.getStatus() == MemberStatus.BLOCKED_MANUALLY) {
@@ -206,6 +244,14 @@ public class LoanServiceImpl implements LoanService {
 
     private void validateBookAvailable(Book book) {
         if (book.getAvailableCopies() <= 0) {
+            throw new BusinessException(ErrorCode.NO_COPIES_AVAILABLE,
+                    "No available copies for: " + book.getTitle(),
+                    HttpStatus.CONFLICT);
+        }
+    }
+
+    private void validateBookReserved(Book book) {
+        if (book.getReservedCopies() <= 0) {
             throw new BusinessException(ErrorCode.NO_COPIES_AVAILABLE,
                     "No available copies for: " + book.getTitle(),
                     HttpStatus.CONFLICT);

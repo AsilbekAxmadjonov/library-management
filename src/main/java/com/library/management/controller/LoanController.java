@@ -3,7 +3,6 @@ package com.library.management.controller;
 import com.library.management.dto.request.IssueLoanRequest;
 import com.library.management.dto.response.LoanResponse;
 import com.library.management.service.LoanService;
-import com.library.management.service.ReservationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -63,6 +62,19 @@ public class LoanController {
     )
     public ResponseEntity<LoanResponse> extend(@PathVariable Long id) {
         return ResponseEntity.ok(loanService.extendLoan(id));
+    }
+
+    @PostMapping("/issue-notified-member")
+    @Operation(
+            summary = "Issue a book to a notified member",
+            description = "Validates member status, loan limit, fine threshold and book availability"
+    )
+    public ResponseEntity<LoanResponse> issueNotifiedMember(
+            @RequestParam IssueLoanRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(loanService.issueNotifiedMember(request));
     }
 }
 
