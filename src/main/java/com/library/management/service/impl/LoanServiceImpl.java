@@ -119,7 +119,7 @@ public class LoanServiceImpl implements LoanService {
         Member member = loan.getMember();
         MemberTypeConfig config = props.configFor(member.getType());
 
-        LocalDate today = LocalDate.now(clock);  // W2 FIX
+        LocalDate today = LocalDate.now(clock);
 
         if (loan.getStatus() == LoanStatus.RETURNED) {
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
@@ -229,13 +229,22 @@ public class LoanServiceImpl implements LoanService {
             amount = Math.min(amount, loan.getBook().getPrice());
         }
 
-        Optional<Fine> existingOpt = fineRepository.findByLoanId(loan.getId());
+        Optional<Fine> existingOpt = fineRepository.findLatestByLoanId(loan.getId());
 
-        if (existingOpt.isPresent()
-                && existingOpt.get().getCalculatedUpTo().equals(today)) {
-            log.info("Fine already calculated today for loanId={} — skipping",
-                    loan.getId());
-            return;
+        if (existingOpt.isPresent()) {
+            Fine existing = existingOpt.get();
+
+            if (existing.getStatus() == FineStatus.PAID) {
+                log.info("Fine for loanId={} already paid — skipping fine creation on return",
+                        loan.getId());
+                return;
+            }
+
+            if (existing.getCalculatedUpTo().equals(today)) {
+                log.info("Fine already calculated today for loanId={} — skipping",
+                        loan.getId());
+                return;
+            }
         }
 
         Fine fine = existingOpt.orElse(new Fine());
@@ -245,8 +254,7 @@ public class LoanServiceImpl implements LoanService {
         fine.setCalculatedUpTo(today);
         fineRepository.save(fine);
 
-        log.info("Fine saved on return: loanId={} memberType={} " +
-                        "billableDays={} amount={}",
+        log.info("Fine saved on return: loanId={} memberType={} billableDays={} amount={}",
                 loan.getId(), loan.getMember().getType(), billableDays, amount);
     }
 

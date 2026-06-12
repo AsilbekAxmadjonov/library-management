@@ -94,12 +94,12 @@ public class FineServiceImpl implements FineService {
     @Scheduled(cron = "${library.scheduler.fine-update-cron}")
     public void runDailyFineUpdate() {
         log.info("=== Daily fine update job started ===");
-        LocalDate today = LocalDate.now(clock);  // W2 FIX: use injected clock
+        LocalDate today = LocalDate.now(clock);
         List<Loan> overdueLoans = loanRepository.findOverdueLoans(today);
         int updated = 0;
 
         for (Loan loan : overdueLoans) {
-            Optional<Fine> existing = fineRepository.findByLoanId(loan.getId());
+            Optional<Fine> existing = fineRepository.findLatestByLoanId(loan.getId());
 
             if (existing.isPresent()
                     && existing.get().getCalculatedUpTo().equals(today)) {
@@ -152,27 +152,6 @@ public class FineServiceImpl implements FineService {
 
         log.info("=== Daily fine update completed. Updated: {} ===", updated);
     }
-
-
-//    private long calculateFineAmount(Loan loan) {
-//        MemberTypeConfig config = props.configFor(loan.getMember().getType());
-//
-//        long overdueDays = loan.overdueDays();
-//
-//        long billableDays = overdueDays - config.getGracePeriodDays();
-//
-//        if (billableDays <= 0) {
-//            return 0L;
-//        }
-//
-//        long amount = billableDays * config.getDailyRate();
-//
-//        if (loan.getBook().getPrice() != null) {
-//            amount = Math.min(amount, loan.getBook().getPrice());
-//        }
-//
-//        return amount;
-//    }
 
     private Fine findById(Long id) {
         return fineRepository.findById(id)

@@ -111,7 +111,8 @@ public class ReservationServiceImpl implements ReservationService {
                 reservationId, memberId, previousStatus);
 
         if (previousStatus == ReservationStatus.NOTIFIED) {
-            Book book = reservation.getBook();
+            Book book = bookRepository.findById(reservation.getBook().getId())
+                    .orElseThrow(() -> BusinessException.notFound("Book", reservation.getBook().getId()));
             book.setAvailableCopies(book.getAvailableCopies() + 1);
             bookRepository.save(book);
             log.info("Available copies restored after NOTIFIED cancellation: " +
@@ -139,7 +140,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     public void fulfillReservation(Long memberId, Long bookId) {
         reservationRepository
-                .findByMemberIdAndBookIdAndStatus(
+                .findFirstByMemberIdAndBookIdAndStatus(
                         memberId, bookId, ReservationStatus.NOTIFIED)
                 .ifPresent(reservation -> {
                     reservation.setStatus(ReservationStatus.FULFILLED);
@@ -151,21 +152,24 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public void notifyNextInQueue(Book book) {
+        Book freshBook = bookRepository.findById(book.getId())
+                .orElseThrow(() -> BusinessException.notFound("Book", book.getId()));
+
         reservationRepository
-                .findFirstByBookIdAndStatusOrderByReservedAtAsc(book.getId())
+                .findFirstByBookIdAndStatusOrderByReservedAtAsc(freshBook.getId())
                 .ifPresent(next -> {
                     next.setStatus(ReservationStatus.NOTIFIED);
                     next.setExpiresAt(LocalDate.now().plusDays(3));
                     reservationRepository.save(next);
 
-                    book.setAvailableCopies(book.getAvailableCopies() - 1);
-                    bookRepository.save(book);
+                    freshBook.setAvailableCopies(freshBook.getAvailableCopies() - 1);
+                    bookRepository.save(freshBook);
 
                     log.info("Next in queue notified: reservationId={} memberId={} " +
                                     "bookId={} expiresAt={} availableCopies={}",
                             next.getId(), next.getMember().getId(),
-                            book.getId(), next.getExpiresAt(),
-                            book.getAvailableCopies());
+                            freshBook.getId(), next.getExpiresAt(),
+                            freshBook.getAvailableCopies());
                 });
     }
 
@@ -187,7 +191,8 @@ public class ReservationServiceImpl implements ReservationService {
                     reservation.getMember().getId(),
                     reservation.getBook().getId());
 
-            Book book = reservation.getBook();
+            Book book = bookRepository.findById(reservation.getBook().getId())
+                    .orElseThrow(() -> BusinessException.notFound("Book", reservation.getBook().getId()));
             book.setAvailableCopies(book.getAvailableCopies() + 1);
             bookRepository.save(book);
             log.info("Available copies restored after expiry: bookId={} newAvailable={}",

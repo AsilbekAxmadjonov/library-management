@@ -5,7 +5,6 @@ import com.library.management.dto.response.LoanResponse;
 
 import java.util.List;
 
-// service/LoanService.java
 public interface LoanService {
 
     LoanResponse issueLoan(IssueLoanRequest request);

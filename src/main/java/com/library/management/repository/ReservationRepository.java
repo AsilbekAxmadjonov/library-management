@@ -16,13 +16,19 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-    SELECT r FROM Reservation r
-    WHERE r.book.id = :bookId
-    AND r.status = 'WAITING'
-    ORDER BY r.reservedAt ASC
-""")
-    Optional<Reservation> findFirstByBookIdAndStatusOrderByReservedAtAsc(
+        SELECT r FROM Reservation r
+        WHERE r.book.id = :bookId
+        AND r.status = 'WAITING'
+        ORDER BY r.reservedAt ASC
+        LIMIT 1
+    """)
+    List<Reservation> findTopByBookIdAndStatusOrderByReservedAtAsc(
             @Param("bookId") Long bookId);
+
+    default Optional<Reservation> findFirstByBookIdAndStatusOrderByReservedAtAsc(Long bookId) {
+        List<Reservation> results = findTopByBookIdAndStatusOrderByReservedAtAsc(bookId);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
 
     boolean existsByMemberIdAndBookIdAndStatus(
             Long memberId, Long bookId, ReservationStatus status);
@@ -32,7 +38,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByMemberId(Long memberId);
 
-    Optional<Reservation> findByMemberIdAndBookIdAndStatus(
+    Optional<Reservation> findFirstByMemberIdAndBookIdAndStatus(
             Long memberId, Long bookId, ReservationStatus status);
 
     @Query("""
