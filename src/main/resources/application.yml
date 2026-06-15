@@ -21,7 +21,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         default_schema: public
         jdbc:
           batch_size: 20
@@ -30,7 +29,7 @@ spring:
         order_updates: true
 
   jackson:
-    time-zone: Asia/Tashkent   # adjust to your deployment timezone if needed
+    time-zone: Asia/Tashkent
     serialization:
       write-dates-as-timestamps: false
 

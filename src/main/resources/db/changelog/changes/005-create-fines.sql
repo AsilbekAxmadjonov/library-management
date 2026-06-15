@@ -1,4 +1,4 @@
-CREATE SEQUENCE fines_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE fines_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE fines (
                        id                  BIGINT PRIMARY KEY DEFAULT nextval('fines_seq'),

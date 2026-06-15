@@ -16,6 +16,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Reservation extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "reservations_generator")
+    @SequenceGenerator(name = "reservations_generator", sequenceName = "reservations_seq", allocationSize = 1)
+    @Column(name = "reservation_id")
+    private Long id;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;

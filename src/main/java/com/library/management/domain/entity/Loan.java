@@ -16,6 +16,12 @@ import java.time.temporal.ChronoUnit;
 @NoArgsConstructor
 public class Loan extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "loans_generator")
+    @SequenceGenerator(name = "loans_generator", sequenceName = "loans_seq", allocationSize = 1)
+    @Column(name = "loan_id")
+    private Long id;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;

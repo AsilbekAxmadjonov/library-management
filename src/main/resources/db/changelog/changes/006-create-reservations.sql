@@ -1,4 +1,4 @@
-CREATE SEQUENCE reservations_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE reservations_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE reservations (
                               id              BIGINT PRIMARY KEY DEFAULT nextval('reservations_seq'),
