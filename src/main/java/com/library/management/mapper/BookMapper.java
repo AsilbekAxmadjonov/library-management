@@ -11,7 +11,7 @@ public interface BookMapper {
 
     @Mapping(
             target = "authorFullName",
-            expression = "java(book.getAuthor().getFirstName() + \" \" + book.getAuthor().getLastName())"
+            expression = "java(book.getAuthor() != null ? book.getAuthor().getFirstName() + \" \" + book.getAuthor().getLastName() : null)"
     )
     BookResponse toResponse(Book book);
 

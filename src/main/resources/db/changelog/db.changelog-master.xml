@@ -5,14 +5,14 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
-    <include file="db/changelog/changes/001-create-authors.sql"/>
-    <include file="db/changelog/changes/002-create-members.sql"/>
-    <include file="db/changelog/changes/003-create-books.sql"/>
-    <include file="db/changelog/changes/004-create-loans.sql"/>
-    <include file="db/changelog/changes/005-create-fines.sql"/>
-    <include file="db/changelog/changes/006-create-reservations.sql"/>
-    <include file="db/changelog/changes/007-add-version-columns.sql"/>
-    <include file="db/changelog/changes/008-add-reservation-unique-constraint.sql"/>
-    <include file="db/changelog/changes/009-update-member-status.sql"/>
+    <include file="changes/001-create-authors.sql"             relativeToChangelogFile="true"/>
+    <include file="changes/002-create-members.sql"             relativeToChangelogFile="true"/>
+    <include file="changes/003-create-books.sql"               relativeToChangelogFile="true"/>
+    <include file="changes/004-create-loans.sql"               relativeToChangelogFile="true"/>
+    <include file="changes/005-create-fines.sql"               relativeToChangelogFile="true"/>
+    <include file="changes/006-create-reservations.sql"        relativeToChangelogFile="true"/>
+    <include file="changes/007-add-version-columns.sql"        relativeToChangelogFile="true"/>
+    <include file="changes/008-add-reservation-unique-constraint.sql" relativeToChangelogFile="true"/>
+    <include file="changes/009-update-member-status.sql"       relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

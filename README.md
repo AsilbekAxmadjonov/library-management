@@ -274,46 +274,61 @@ A queue entry when a member wants a book with no available copies.
 ### Issuing a Loan
 A loan is rejected if any of the following are true:
 
-| Rule | Config key | Default |
-|---|---|---|
-| Member is BLOCKED | — | — |
-| Member already has N active loans | `library.loan.max-books-per-member` | 5 |
-| Member has unpaid fines above threshold | `library.fine.max-unpaid-threshold` | 50,000 tiyin |
-| No available copies of the book | — | — |
+| Rule | Config key | Standard | Student | Premium |
+|---|---|---|---|---|
+| Member is BLOCKED | — | — | — | — |
+| Member already has N active loans | `library.member-types.<type>.max-books` | 5 | 3 | 10 |
+| Member has unpaid fines above threshold | `library.member-types.<type>.max-unpaid-threshold` | 50 000 | 25 000 | 100 000 |
+| No available copies of the book | — | — | — | — |
 
 ### Returning a Book
 - Loan is closed, `returnDate` is set to today
 - `availableCopies` on the book is incremented by 1
 - If the return is late, a fine is automatically created
 - The first person in the reservation queue (if any) is notified
-
 ### Fine Calculation
 ```
-fine amount = overdue days × daily rate
+fine amount = billable overdue days × daily rate
+billable days = overdue days − grace period days
 ```
-- `daily rate` is configured at `library.fine.daily-rate` (default: 500 tiyin = 5 so'm per day)
+
+Fine rates and grace periods are **per member type** — configured in `application.yml`:
+
+| Config key | Standard | Student | Premium |
+|---|---|---|---|
+| `library.member-types.<type>.daily-rate` | 500 tiyin | 250 tiyin | 750 tiyin |
+| `library.member-types.<type>.grace-period-days` | 0 | 2 | 1 |
+
 - If the book has a `price` set, the fine is capped at that price
 - Fine grows every day until the book is returned
 - The daily scheduler recalculates all active overdue fines at 01:00 AM
-
 ### Extending a Loan
 Extension is **not allowed** if:
 - The loan is already returned
 - The loan is already overdue
-- The member has used all allowed extensions (`library.loan.max-extensions`, default: 2)
+- The member has used all allowed extensions (`library.member-types.<type>.max-extensions`)
 - There is a reservation queue for that book (other members are waiting)
+  Default extension limits per member type:
+
+| Type | Max extensions | Extension days |
+|---|---|---|
+| STANDARD | 2 | 7 |
+| STUDENT | 1 | 7 |
+| PREMIUM | 4 | 7 |
 
 Each extension adds `library.loan.extension-days` days (default: 7) to the due date.
 
 ### Auto-blocking Members
-The daily scheduler automatically blocks a member when their total unpaid fines exceed `library.fine.max-unpaid-threshold`. When they pay enough fines to drop below the threshold, they are automatically re-activated.
+The daily scheduler automatically blocks a member when their total unpaid fines exceed
+`library.member-types.<type>.max-unpaid-threshold`. When they pay enough fines to drop
+below the threshold, they are automatically re-activated.
 
 ### Reservation Queue
 - A member can only reserve a book when `availableCopies == 0`
 - Queue is FIFO (first reserved = first notified)
-- When a book is returned, the first WAITING reservation is set to NOTIFIED with a 3-day pickup deadline
+- When a book is returned, the first WAITING reservation is set to NOTIFIED
+  with a pickup deadline of `library.reservation.notification-expiry-days` days (default: 3)
 - A member can cancel their own reservation at any time if it is still WAITING or NOTIFIED
-
 ---
 
 ## 6. Prerequisites
@@ -392,37 +407,41 @@ spring:
     password: postgres
 ```
 
-Change `username` and `password` to match your PostgreSQL setup.
-
 ### Business rules (all configurable — nothing hardcoded)
 
 ```yaml
 library:
   loan:
-    max-books-per-member: 5     # Max active loans a member can have at once
     default-loan-days: 14       # Due date = today + this many days
-    max-extensions: 2           # How many times a member can extend a loan
     extension-days: 7           # Days added to due date per extension
-
-  fine:
-    daily-rate: 500             # Tiyin charged per overdue day (500 = 5 so'm)
-    max-unpaid-threshold: 50000 # Block member when unpaid fines exceed this amount
-
+ 
+  member-types:
+    standard:
+      daily-rate: 500           # Tiyin charged per overdue day
+      max-books: 5              # Max active loans at once
+      max-extensions: 2         # Max loan extensions
+      grace-period-days: 0      # Grace days before fine kicks in
+      max-unpaid-threshold: 50000
+ 
+    student:
+      daily-rate: 250
+      max-books: 3
+      max-extensions: 1
+      grace-period-days: 2
+      max-unpaid-threshold: 25000
+ 
+    premium:
+      daily-rate: 750
+      max-books: 10
+      max-extensions: 4
+      grace-period-days: 1
+      max-unpaid-threshold: 100000
+ 
+  reservation:
+    notification-expiry-days: 3  # Days a notified member has to pick up the book
+ 
   scheduler:
-    fine-update-cron: "0 0 1 * * *"  # Cron expression — default: daily at 01:00 AM
-```
-
-### Cron expression format
-
-```
-"0 0 1 * * *"
- │ │ │ │ │ │
- │ │ │ │ │ └── Day of week (any)
- │ │ │ │ └──── Month (any)
- │ │ │ └────── Day of month (any)
- │ │ └──────── Hour (1 = 01:00 AM)
- │ └────────── Minute (0)
- └──────────── Second (0)
+    fine-update-cron: "0 0 1 * * *"  # Daily at 01:00 AM
 ```
 
 ---

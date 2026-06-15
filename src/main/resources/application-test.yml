@@ -1,58 +1,96 @@
 spring:
+  application:
+    name: library-management-system
+
   datasource:
-    url: jdbc:h2:mem:librarytest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false;MODE=PostgreSQL
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/library-system}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
 
   jpa:
     hibernate:
-      # Let Hibernate create the schema from entities — Liquibase is disabled in tests
-      ddl-auto: create-drop
-    show-sql: true
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     open-in-view: false
     properties:
       hibernate:
         format_sql: true
-        # H2 in PostgreSQL mode handles most PG syntax; dialect must match
-        dialect: org.hibernate.dialect.H2Dialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+        jdbc:
+          batch_size: 20
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+
+  jackson:
+    time-zone: Asia/Tashkent   # adjust to your deployment timezone if needed
+    serialization:
+      write-dates-as-timestamps: false
 
   liquibase:
-    # Disable Liquibase in tests — schema is created by Hibernate ddl-auto instead
-    enabled: false
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: ${SPRING_LIQUIBASE_ENABLED:true}
 
-# ── Library business config (mirrors application.yml defaults) ───────────────
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+  api-docs:
+    path: /api-docs
+
 library:
   loan:
-    default-loan-days: 14
-    extension-days: 7
+    default-loan-days: ${LIBRARY_LOAN_DEFAULT_LOAN_DAYS:14}
+    extension-days: ${LIBRARY_LOAN_EXTENSION_DAYS:7}
 
   member-types:
     standard:
-      daily-rate: 500
+      daily-rate: ${LIBRARY_MEMBER_TYPES_STANDARD_DAILY_RATE:500}
       max-books: 5
       max-extensions: 2
       grace-period-days: 0
       max-unpaid-threshold: 50000
     student:
-      daily-rate: 250
+      daily-rate: ${LIBRARY_MEMBER_TYPES_STUDENT_DAILY_RATE:250}
       max-books: 3
       max-extensions: 1
       grace-period-days: 2
       max-unpaid-threshold: 25000
     premium:
-      daily-rate: 750
+      daily-rate: ${LIBRARY_MEMBER_TYPES_PREMIUM_DAILY_RATE:750}
       max-books: 10
       max-extensions: 4
       grace-period-days: 1
       max-unpaid-threshold: 100000
 
   scheduler:
-    fine-update-cron: "0 0 1 * * *"
+    fine-update-cron: ${LIBRARY_SCHEDULER_FINE_UPDATE_CRON:0 0 1 * * *}
 
   isbn-lookup:
     timeout-seconds: 5
 
-# ── Suppress scheduler during tests to avoid timer noise ────────────────────
-# (override in specific integration tests if you want to test scheduling)
-spring.task.scheduling.pool.size: 0
+  reservation:
+    notification-expiry-days: ${LIBRARY_RESERVATION_NOTIFICATION_EXPIRY_DAYS:3}

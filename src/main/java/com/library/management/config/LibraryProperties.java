@@ -1,5 +1,6 @@
 package com.library.management.config;
 
+import com.library.management.domain.entity.Reservation;
 import com.library.management.domain.enums.MemberType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,6 +14,7 @@ public class LibraryProperties {
     private Loan loan = new Loan();
     private MemberTypes memberTypes = new MemberTypes();
     private Scheduler scheduler = new Scheduler();
+    private Reservation reservation = new Reservation();
 
 
     @Data
@@ -39,13 +41,16 @@ public class LibraryProperties {
         private long maxUnpaidThreshold;
     }
 
-    // ── Scheduler ──────────────────────────────────────────────────
     @Data
     public static class Scheduler {
         private String fineUpdateCron = "0 0 1 * * *";
     }
 
-    // ── Helper — resolve config by member type ─────────────────────
+    @Data
+    public static class Reservation {
+        private int notificationExpiryDays = 3;
+    }
+
     public MemberTypeConfig configFor(MemberType type) {
         return switch (type) {
             case STUDENT  -> memberTypes.getStudent();

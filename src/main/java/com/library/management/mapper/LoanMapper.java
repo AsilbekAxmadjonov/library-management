@@ -9,7 +9,7 @@ public interface LoanMapper {
 
     @Mapping(target = "memberId",       source = "member.id")
     @Mapping(target = "memberFullName",
-            expression = "java(loan.getMember().getFirstName() + \" \" + loan.getMember().getLastName())"
+            expression = "java(loan.getMember() != null ? loan.getMember().getFirstName() + \" \" + loan.getMember().getLastName() : null)"
     )
     @Mapping(target = "bookId",         source = "book.id")
     @Mapping(target = "bookTitle",      source = "book.title")

@@ -49,14 +49,14 @@ class LoanServiceTest {
             Clock.fixed(TODAY.atStartOfDay(ZoneId.of("Asia/Tashkent")).toInstant(),
                     ZoneId.of("Asia/Tashkent"));
 
-    @Mock private LoanRepository       loanRepository;
-    @Mock private BookRepository       bookRepository;
-    @Mock private MemberRepository     memberRepository;
-    @Mock private FineRepository       fineRepository;
+    @Mock private LoanRepository        loanRepository;
+    @Mock private BookRepository        bookRepository;
+    @Mock private MemberRepository      memberRepository;
+    @Mock private FineRepository        fineRepository;
     @Mock private ReservationRepository reservationRepository;
-    @Mock private ReservationService   reservationService;
-    @Mock private LoanMapper           loanMapper;
-    @Mock private LibraryProperties    props;
+    @Mock private ReservationService    reservationService;
+    @Mock private LoanMapper            loanMapper;
+    @Mock private LibraryProperties     props;
 
     @InjectMocks
     private LoanServiceImpl loanService;
@@ -66,6 +66,7 @@ class LoanServiceTest {
 
     @BeforeEach
     void setUp() {
+        // inject fixed clock via reflection (Clock is a final class — cannot be @Mock)
         try {
             var field = LoanServiceImpl.class.getDeclaredField("clock");
             field.setAccessible(true);
@@ -89,9 +90,32 @@ class LoanServiceTest {
         book.setReservedCopies(0);
     }
 
-    private LibraryProperties.MemberTypeConfig standardConfig() {
+    // ── helpers ─────────────────────────────────────────────────────────────
+
+    private MemberTypeConfig standardConfig() {
         return new MemberTypeConfig(500L, 5, 2, 0, 50_000L);
     }
+
+    /** Stub props.getLoan() — needed in every test that reaches issueLoan() save path */
+    private void stubLoanConfig(int defaultLoanDays) {
+        LibraryProperties.Loan loanConfig = new LibraryProperties.Loan();
+        loanConfig.setDefaultLoanDays(defaultLoanDays);
+        when(props.getLoan()).thenReturn(loanConfig);
+    }
+
+    private Loan buildActiveLoan(LocalDate dueDate) {
+        Loan loan = new Loan();
+        loan.setId(10L);
+        loan.setMember(member);
+        loan.setBook(book);
+        loan.setLoanDate(TODAY.minusDays(7));
+        loan.setDueDate(dueDate);
+        loan.setStatus(LoanStatus.ACTIVE);
+        loan.setExtensionCount(0);
+        return loan;
+    }
+
+    // ── issueLoan ────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("issueLoan — happy path: loan created, available copies decremented")
@@ -101,6 +125,8 @@ class LoanServiceTest {
         when(props.configFor(MemberType.STANDARD)).thenReturn(standardConfig());
         when(loanRepository.countByMemberIdAndStatus(1L, LoanStatus.ACTIVE)).thenReturn(0L);
         when(fineRepository.sumUnpaidFinesByMemberId(1L)).thenReturn(0L);
+        // FIX: props.getLoan() must return a real object — otherwise NPE at issueLoan():66
+        stubLoanConfig(14);
 
         Loan savedLoan = new Loan();
         savedLoan.setId(10L);
@@ -133,7 +159,8 @@ class LoanServiceTest {
         member.setStatus(MemberStatus.BLOCKED_BY_FINES);
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(props.configFor(MemberType.STANDARD)).thenReturn(standardConfig());
+        // props.configFor() NOT stubbed — validateMemberCanBorrow() throws on status check
+        // before ever reaching the configFor() call
 
         assertThatThrownBy(() -> loanService.issueLoan(new IssueLoanRequest(1L, 1L)))
                 .isInstanceOf(BusinessException.class)
@@ -149,7 +176,7 @@ class LoanServiceTest {
         member.setStatus(MemberStatus.BLOCKED_MANUALLY);
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
-        when(props.configFor(MemberType.STANDARD)).thenReturn(standardConfig());
+        // props.configFor() NOT stubbed — same reason as above
 
         assertThatThrownBy(() -> loanService.issueLoan(new IssueLoanRequest(1L, 1L)))
                 .isInstanceOf(BusinessException.class)
@@ -179,7 +206,6 @@ class LoanServiceTest {
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
         when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
         when(props.configFor(MemberType.STANDARD)).thenReturn(standardConfig());
-        // 5 active loans = at the limit
         when(loanRepository.countByMemberIdAndStatus(1L, LoanStatus.ACTIVE)).thenReturn(5L);
 
         assertThatThrownBy(() -> loanService.issueLoan(new IssueLoanRequest(1L, 1L)))
@@ -188,13 +214,13 @@ class LoanServiceTest {
                         .isEqualTo(ErrorCode.LOAN_LIMIT_EXCEEDED));
     }
 
+    // ── returnBook ───────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("returnBook — overdue return creates a fine with correct amount")
     void returnBook_overdue_createsFine() {
-        // loan was due 5 days ago → 5 overdue days × 500/day = 2500 tiyin
-        LocalDate dueDate = TODAY.minusDays(5);
-
-        Loan loan = buildActiveLoan(dueDate);
+        // 5 overdue days × 500/day = 2 500 tiyin, grace = 0
+        Loan loan = buildActiveLoan(TODAY.minusDays(5));
         when(loanRepository.findById(10L)).thenReturn(Optional.of(loan));
         when(bookRepository.save(any())).thenReturn(book);
         when(fineRepository.findLatestByLoanId(10L)).thenReturn(Optional.empty());
@@ -207,7 +233,7 @@ class LoanServiceTest {
         ArgumentCaptor<Fine> fineCaptor = ArgumentCaptor.forClass(Fine.class);
         verify(fineRepository).save(fineCaptor.capture());
         Fine savedFine = fineCaptor.getValue();
-        assertThat(savedFine.getAmount()).isEqualTo(5 * 500L);   // 2500 tiyin
+        assertThat(savedFine.getAmount()).isEqualTo(5 * 500L);
         assertThat(savedFine.getStatus()).isEqualTo(FineStatus.PENDING);
         assertThat(savedFine.getCalculatedUpTo()).isEqualTo(TODAY);
     }
@@ -230,9 +256,8 @@ class LoanServiceTest {
     @DisplayName("returnBook — price cap: fine capped at book price when price > 0")
     void returnBook_overdue_fineCappedAtBookPrice() {
         book.setPrice(1500L);
-        LocalDate dueDate = TODAY.minusDays(10);
+        Loan loan = buildActiveLoan(TODAY.minusDays(10)); // 10 × 500 = 5000 → capped at 1500
 
-        Loan loan = buildActiveLoan(dueDate);
         when(loanRepository.findById(10L)).thenReturn(Optional.of(loan));
         when(bookRepository.save(any())).thenReturn(book);
         when(fineRepository.findLatestByLoanId(10L)).thenReturn(Optional.empty());
@@ -248,12 +273,11 @@ class LoanServiceTest {
     }
 
     @Test
-    @DisplayName("returnBook — price = 0: fine NOT capped at zero (M5 fix)")
+    @DisplayName("returnBook — price = 0: fine NOT capped (zero price means no cap)")
     void returnBook_overdue_zeroPriceDoesNotZeroFine() {
         book.setPrice(0L);
-        LocalDate dueDate = TODAY.minusDays(3);
+        Loan loan = buildActiveLoan(TODAY.minusDays(3)); // 3 × 500 = 1500
 
-        Loan loan = buildActiveLoan(dueDate);
         when(loanRepository.findById(10L)).thenReturn(Optional.of(loan));
         when(bookRepository.save(any())).thenReturn(book);
         when(fineRepository.findLatestByLoanId(10L)).thenReturn(Optional.empty());
@@ -281,10 +305,12 @@ class LoanServiceTest {
                         .isEqualTo(ErrorCode.LOAN_ALREADY_RETURNED));
     }
 
+    // ── extendLoan ───────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("extendLoan — overdue loan → EXTENSION_NOT_ALLOWED exception")
     void extendLoan_overdue_throwsException() {
-        Loan loan = buildActiveLoan(TODAY.minusDays(1)); // past due
+        Loan loan = buildActiveLoan(TODAY.minusDays(1));
         when(loanRepository.findById(10L)).thenReturn(Optional.of(loan));
         when(props.configFor(MemberType.STANDARD)).thenReturn(standardConfig());
 
@@ -329,18 +355,5 @@ class LoanServiceTest {
 
         assertThat(loan.getDueDate()).isEqualTo(originalDue.plusDays(7));
         assertThat(loan.getExtensionCount()).isEqualTo(1);
-    }
-
-
-    private Loan buildActiveLoan(LocalDate dueDate) {
-        Loan loan = new Loan();
-        loan.setId(10L);
-        loan.setMember(member);
-        loan.setBook(book);
-        loan.setLoanDate(TODAY.minusDays(7));
-        loan.setDueDate(dueDate);
-        loan.setStatus(LoanStatus.ACTIVE);
-        loan.setExtensionCount(0);
-        return loan;
     }
 }
