@@ -25,8 +25,14 @@ spring:
         default_schema: public
         jdbc:
           batch_size: 20
+          time_zone: UTC
         order_inserts: true
         order_updates: true
+
+  jackson:
+    time-zone: Asia/Tashkent   # adjust to your deployment timezone if needed
+    serialization:
+      write-dates-as-timestamps: false
 
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.xml
@@ -85,3 +91,6 @@ library:
 
   isbn-lookup:
     timeout-seconds: 5
+
+  reservation:
+    notification-expiry-days: ${LIBRARY_RESERVATION_NOTIFICATION_EXPIRY_DAYS:3}

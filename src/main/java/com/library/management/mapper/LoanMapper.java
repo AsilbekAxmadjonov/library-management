@@ -7,7 +7,6 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface LoanMapper {
 
-    // Loan has nested objects (member, book) — we flatten them into the response
     @Mapping(target = "memberId",       source = "member.id")
     @Mapping(target = "memberFullName",
             expression = "java(loan.getMember().getFirstName() + \" \" + loan.getMember().getLastName())"
@@ -16,6 +15,4 @@ public interface LoanMapper {
     @Mapping(target = "bookTitle",      source = "book.title")
     LoanResponse toResponse(Loan loan);
 
-    // No toEntity here — Loan is always created programmatically in LoanService,
-    // never directly from a single DTO (it needs Member + Book entities)
 }

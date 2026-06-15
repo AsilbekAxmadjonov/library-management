@@ -4,11 +4,13 @@ import com.library.management.domain.entity.Author;
 import com.library.management.dto.request.CreateAuthorRequest;
 import com.library.management.dto.response.AuthorResponse;
 import com.library.management.exception.BusinessException;
+import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.AuthorMapper;
 import com.library.management.repository.AuthorRepository;
 import com.library.management.service.AuthorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,15 @@ public class AuthorServiceImpl implements AuthorService {
 
     @Override
     public AuthorResponse create(CreateAuthorRequest request) {
+        if (authorRepository.existsByFirstNameAndLastName(
+                request.firstName(), request.lastName())) {
+            throw new BusinessException(
+                    ErrorCode.DUPLICATE_RESOURCE,
+                    "Author already exists: " + request.firstName() + " " + request.lastName(),
+                    HttpStatus.CONFLICT
+            );
+        }
+
         Author author = authorMapper.toEntity(request);
         Author saved = authorRepository.save(author);
         log.info("Author created: id={}", saved.getId());
@@ -60,7 +71,6 @@ public class AuthorServiceImpl implements AuthorService {
         log.info("Author deleted: id={}", id);
     }
 
-    // ── private helper — reused across methods ────────────────────
     private Author findById(Long id) {
         return authorRepository.findById(id)
                 .orElseThrow(() -> BusinessException.notFound("Author", id));

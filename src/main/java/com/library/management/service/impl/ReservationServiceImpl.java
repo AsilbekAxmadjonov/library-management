@@ -87,18 +87,18 @@ public class ReservationServiceImpl implements ReservationService {
                 .orElseThrow(() -> BusinessException.notFound("Reservation", reservationId));
 
         if (!reservation.getMember().getId().equals(memberId)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACTION,
                     "You can only cancel your own reservations",
                     HttpStatus.FORBIDDEN);
         }
 
         if (reservation.getStatus() == ReservationStatus.FULFILLED) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Cannot cancel a fulfilled reservation",
                     HttpStatus.CONFLICT);
         }
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Reservation is already cancelled",
                     HttpStatus.CONFLICT);
         }
@@ -112,7 +112,8 @@ public class ReservationServiceImpl implements ReservationService {
 
         if (previousStatus == ReservationStatus.NOTIFIED) {
             Book book = bookRepository.findById(reservation.getBook().getId())
-                    .orElseThrow(() -> BusinessException.notFound("Book", reservation.getBook().getId()));
+                    .orElseThrow(() -> BusinessException.notFound("Book",
+                            reservation.getBook().getId()));
             book.setAvailableCopies(book.getAvailableCopies() + 1);
             bookRepository.save(book);
             log.info("Available copies restored after NOTIFIED cancellation: " +

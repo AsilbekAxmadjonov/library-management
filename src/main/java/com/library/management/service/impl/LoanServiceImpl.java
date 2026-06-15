@@ -22,7 +22,6 @@ import com.library.management.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -271,8 +270,10 @@ public class LoanServiceImpl implements LoanService {
         }
 
         long amount = billableDays * config.getDailyRate();
-        if (loan.getBook().getPrice() != null) {
-            amount = Math.min(amount, loan.getBook().getPrice());
+
+        Long bookPrice = loan.getBook().getPrice();
+        if (bookPrice != null && bookPrice > 0) {
+            amount = Math.min(amount, bookPrice);
         }
 
         Optional<Fine> existingOpt = fineRepository.findLatestByLoanId(loan.getId());

@@ -14,14 +14,13 @@ public class LibraryProperties {
     private MemberTypes memberTypes = new MemberTypes();
     private Scheduler scheduler = new Scheduler();
 
-    // ── Loan general config ────────────────────────────────────────
+
     @Data
     public static class Loan {
         private int defaultLoanDays = 14;
         private int extensionDays = 7;
     }
 
-    // ── Per member type config ─────────────────────────────────────
     @Data
     public static class MemberTypes {
         private MemberTypeConfig standard = new MemberTypeConfig(500,  5,  2, 0, 50000);

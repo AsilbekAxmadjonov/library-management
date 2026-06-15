@@ -1,0 +1,58 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:librarytest;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      # Let Hibernate create the schema from entities — Liquibase is disabled in tests
+      ddl-auto: create-drop
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        # H2 in PostgreSQL mode handles most PG syntax; dialect must match
+        dialect: org.hibernate.dialect.H2Dialect
+
+  liquibase:
+    # Disable Liquibase in tests — schema is created by Hibernate ddl-auto instead
+    enabled: false
+
+# ── Library business config (mirrors application.yml defaults) ───────────────
+library:
+  loan:
+    default-loan-days: 14
+    extension-days: 7
+
+  member-types:
+    standard:
+      daily-rate: 500
+      max-books: 5
+      max-extensions: 2
+      grace-period-days: 0
+      max-unpaid-threshold: 50000
+    student:
+      daily-rate: 250
+      max-books: 3
+      max-extensions: 1
+      grace-period-days: 2
+      max-unpaid-threshold: 25000
+    premium:
+      daily-rate: 750
+      max-books: 10
+      max-extensions: 4
+      grace-period-days: 1
+      max-unpaid-threshold: 100000
+
+  scheduler:
+    fine-update-cron: "0 0 1 * * *"
+
+  isbn-lookup:
+    timeout-seconds: 5
+
+# ── Suppress scheduler during tests to avoid timer noise ────────────────────
+# (override in specific integration tests if you want to test scheduling)
+spring.task.scheduling.pool.size: 0

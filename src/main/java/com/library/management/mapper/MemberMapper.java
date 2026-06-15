@@ -8,11 +8,8 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface MemberMapper {
 
-    // Entity → Response DTO
-    // All fields match by name: firstName, lastName, email, phone, status, type, createdAt
     MemberResponse toResponse(Member member);
 
-    // Request DTO → Entity
     @Mapping(target = "id",           ignore = true)
     @Mapping(target = "createdAt",    ignore = true)
     @Mapping(target = "updatedAt",    ignore = true)
@@ -22,7 +19,6 @@ public interface MemberMapper {
     @Mapping(target = "reservations", ignore = true)
     Member toEntity(CreateMemberRequest request);
 
-    // Partial update — status is NOT updated here (use block/activate endpoints instead)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "id",           ignore = true)
     @Mapping(target = "createdAt",    ignore = true)

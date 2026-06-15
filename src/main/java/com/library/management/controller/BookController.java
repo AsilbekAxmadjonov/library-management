@@ -8,6 +8,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,25 +41,14 @@ public class BookController {
     @GetMapping
     @Operation(summary = "Search and filter books with pagination")
     public ResponseEntity<PageResponse<BookResponse>> search(
-            @Parameter(description = "Filter by title (partial match)")
             @RequestParam(required = false) String title,
-
-            @Parameter(description = "Filter by author name (partial match)")
             @RequestParam(required = false) String authorName,
-
-            @Parameter(description = "Filter by genre (exact match)")
             @RequestParam(required = false) String genre,
-
-            @Parameter(description = "Page number, starts at 0")
-            @RequestParam(defaultValue = "0") int page,
-
-            @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "10") int size,
-
-            @Parameter(description = "Sort field (e.g. title, publicationYear)")
-            @RequestParam(defaultValue = "title") String sortBy) {
-        return ResponseEntity.ok(
-                bookService.search(title, authorName, genre, page, size, sortBy));
+            @RequestParam(defaultValue = "0")  @Min(0)         int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "title")              String sortBy
+    ) {
+        return ResponseEntity.ok(bookService.search(title, authorName, genre, page, size, sortBy));
     }
 
     @PutMapping("/{id}")
