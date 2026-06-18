@@ -17,12 +17,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 
-// service/impl/ReportServiceImpl.java
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)  // all reads — set at class level
+@Transactional(readOnly = true)
 @Slf4j
 public class ReportServiceImpl implements ReportService {
 
@@ -31,19 +32,20 @@ public class ReportServiceImpl implements ReportService {
     private final FineRepository fineRepository;
     private final BookMapper bookMapper;
     private final MemberMapper memberMapper;
+    private final Clock clock;
 
     @Override
     public List<BookResponse> getMostReadBooks(int limit) {
-        Pageable pageable = PageRequest.of(0, limit);
-        return bookRepository.findMostReadBooks(pageable)
+        return bookRepository.findMostReadBooks(PageRequest.of(0, limit))
                 .stream()
-                .map(row -> bookMapper.toResponse((Book) row[0]))
+                .map(row -> bookMapper.toResponse((com.library.management.domain.entity.Book) row[0]))
                 .toList();
     }
 
     @Override
     public List<MemberResponse> getMembersWithOverdueLoans() {
-        return loanRepository.findMembersWithOverdueLoans()
+        LocalDate today = LocalDate.now(clock);
+        return loanRepository.findMembersWithOverdueLoans(today)
                 .stream()
                 .map(memberMapper::toResponse)
                 .toList();

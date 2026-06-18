@@ -2,10 +2,10 @@ package com.library.management.service;
 
 import com.library.management.dto.request.IssueLoanRequest;
 import com.library.management.dto.response.LoanResponse;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
-// service/LoanService.java
 public interface LoanService {
 
     LoanResponse issueLoan(IssueLoanRequest request);
@@ -17,4 +17,6 @@ public interface LoanService {
     LoanResponse getById(Long id);
 
     List<LoanResponse> getMemberLoans(Long memberId);
+
+    LoanResponse issueNotifiedMember(IssueLoanRequest issueLoanRequest);
 }

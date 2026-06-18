@@ -9,19 +9,16 @@ public record ErrorResponse(
         Map<String, String> fieldErrors,
         LocalDateTime timestamp
 ) {
-
-    public ErrorResponse(
-            ErrorCode code,
-            String message
-    ) {
-        this(code, message, null, LocalDateTime.now());
+    public static ErrorResponse of(ErrorCode code, String message) {
+        return new ErrorResponse(code, message, null, LocalDateTime.now());
     }
 
-    public ErrorResponse(
-            ErrorCode code,
-            String message,
-            Map<String, String> fieldErrors
-    ) {
-        this(code, message, fieldErrors, LocalDateTime.now());
+    public static ErrorResponse ofValidation(Map<String, String> fieldErrors) {
+        return new ErrorResponse(
+                ErrorCode.VALIDATION_ERROR,
+                "Validation failed",
+                fieldErrors,
+                LocalDateTime.now()
+        );
     }
 }

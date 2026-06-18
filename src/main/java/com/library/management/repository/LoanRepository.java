@@ -9,7 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
 
@@ -17,11 +16,19 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     List<Loan> findByMemberId(Long memberId);
 
-    @Query("SELECT l FROM Loan l WHERE l.status = 'ACTIVE' AND l.dueDate < :today")
+    @Query("""
+        SELECT l FROM Loan l
+        WHERE l.status IN ('ACTIVE', 'OVERDUE')
+        AND l.returnDate IS NULL
+        AND l.dueDate < :today
+    """)
     List<Loan> findOverdueLoans(@Param("today") LocalDate today);
 
-    Optional<Loan> findByMemberIdAndBookIdAndStatus(Long memberId, Long bookId, LoanStatus status);
-
-    @Query("SELECT l.member FROM Loan l WHERE l.status = 'OVERDUE' GROUP BY l.member")
-    List<Member> findMembersWithOverdueLoans();
+    @Query("""
+        SELECT DISTINCT l.member FROM Loan l
+        WHERE l.returnDate IS NULL
+        AND l.dueDate < :today
+        AND l.status IN ('ACTIVE', 'OVERDUE')
+    """)
+    List<Member> findMembersWithOverdueLoans(@Param("today") LocalDate today);
 }

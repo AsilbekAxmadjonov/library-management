@@ -1,6 +1,4 @@
--- 002-create-members.sql
---liquibase formatted sql
---changeset library:002-members
+
 
 CREATE SEQUENCE members_seq START WITH 1 INCREMENT BY 50;
 

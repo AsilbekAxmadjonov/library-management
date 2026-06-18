@@ -29,7 +29,10 @@ public class Book extends BaseEntity {
     private int totalCopies;       // total physical copies
 
     @Column(nullable = false)
-    private int availableCopies;   // copies not currently loaned out
+    private int availableCopies;// copies not currently loaned out
+
+    @Column(nullable = false)
+    private int reservedCopies;
 
     @Column(length = 100)
     private String genre;

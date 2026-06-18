@@ -1,11 +1,8 @@
 services:
   app:
     environment:
-      # Show SQL queries in dev
       SPRING_JPA_SHOW_SQL: true
-      # More verbose logging in dev
       LOGGING_LEVEL_COM_LIBRARY: DEBUG
       LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB: DEBUG
-    # Mount source — useful if you want to see logs easily
     volumes:
       - ./logs:/app/logs

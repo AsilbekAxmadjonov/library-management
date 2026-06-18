@@ -12,18 +12,21 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @MappedSuperclass
-@EntityListeners(AuditingEntityListener.class)        // ← registers the auditing listener
+@EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE)
     private Long id;
 
-    @CreatedDate                                       // ← set automatically on INSERT
+    @Version
+    private Long version;
+
+    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @LastModifiedDate                                  // ← set automatically on INSERT and UPDATE
+    @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 }

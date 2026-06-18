@@ -23,6 +23,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +40,7 @@ public class FineServiceImpl implements FineService {
     private final MemberRepository memberRepository;
     private final FineMapper fineMapper;
     private final LibraryProperties props;
+    private final Clock clock;
 
     @Override
     @Transactional(readOnly = true)
@@ -64,53 +66,51 @@ public class FineServiceImpl implements FineService {
 
         if (fine.getStatus() == FineStatus.PAID) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
-                    "Fine " + fineId + " is already paid", HttpStatus.CONFLICT);
+                    "Fine " + fineId + " is already paid",
+                    HttpStatus.CONFLICT);
         }
 
         fine.setStatus(FineStatus.PAID);
-        fine.setPaidAt(LocalDateTime.now());
+        fine.setPaidAt(LocalDateTime.now(clock));
         fineRepository.save(fine);
 
-        // Re-activate member if unpaid fines drop below THEIR threshold
         Member member = fine.getLoan().getMember();
-        MemberTypeConfig config = props.configFor(member.getType()); // ← per type
+        MemberTypeConfig config = props.configFor(member.getType());
         long remainingUnpaid = fineRepository.sumUnpaidFinesByMemberId(member.getId());
 
-        if (member.getStatus() == MemberStatus.BLOCKED
+        if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
                 && remainingUnpaid <= config.getMaxUnpaidThreshold()) {
             member.setStatus(MemberStatus.ACTIVE);
             memberRepository.save(member);
-            log.info("Member re-activated: memberId={} type={}",
-                    member.getId(), member.getType());
+            log.info("Member auto-unblocked after payment: memberId={}", member.getId());
         }
 
-        log.info("Fine paid: fineId={} memberId={} type={}",
-                fineId, member.getId(), member.getType());
+        log.info("Fine paid: fineId={} memberId={}", fineId, member.getId());
         return fineMapper.toResponse(fine);
     }
+
 
     @Override
     @Scheduled(cron = "${library.scheduler.fine-update-cron}")
     public void runDailyFineUpdate() {
         log.info("=== Daily fine update job started ===");
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         List<Loan> overdueLoans = loanRepository.findOverdueLoans(today);
         int updated = 0;
 
         for (Loan loan : overdueLoans) {
-            Optional<Fine> existing = fineRepository.findByLoanId(loan.getId());
+            Optional<Fine> existing = fineRepository.findLatestByLoanId(loan.getId());
 
-            // IDEMPOTENCY: already calculated for today → skip
             if (existing.isPresent()
                     && existing.get().getCalculatedUpTo().equals(today)) {
                 continue;
             }
 
-            // ── Calculate amount using member type ─────────────────
-            long amount = calculateFineAmount(loan);
+            long days = loan.overdueDays(today);
+            MemberTypeConfig config = props.configFor(loan.getMember().getType());
+            long billableDays = days - config.getGracePeriodDays();
 
-            // Still inside grace period → mark OVERDUE but no fine yet
-            if (amount == 0) {
+            if (billableDays <= 0) {
                 if (loan.getStatus() != LoanStatus.OVERDUE) {
                     loan.setStatus(LoanStatus.OVERDUE);
                     loanRepository.save(loan);
@@ -118,7 +118,11 @@ public class FineServiceImpl implements FineService {
                 continue;
             }
 
-            // ── Save or update fine ────────────────────────────────
+            long amount = billableDays * config.getDailyRate();
+            if (loan.getBook().getPrice() != null) {
+                amount = Math.min(amount, loan.getBook().getPrice());
+            }
+
             Fine fine = existing.orElse(new Fine());
             fine.setLoan(loan);
             fine.setAmount(amount);
@@ -126,21 +130,17 @@ public class FineServiceImpl implements FineService {
             fine.setCalculatedUpTo(today);
             fineRepository.save(fine);
 
-            // ── Update loan status ─────────────────────────────────
             if (loan.getStatus() != LoanStatus.OVERDUE) {
                 loan.setStatus(LoanStatus.OVERDUE);
                 loanRepository.save(loan);
             }
 
-            // ── Auto-block using member-type threshold ─────────────
             Member member = loan.getMember();
-            MemberTypeConfig config = props.configFor(member.getType()); // ← per type
             long totalUnpaid = fineRepository
                     .sumUnpaidFinesByMemberId(member.getId());
-
             if (totalUnpaid > config.getMaxUnpaidThreshold()) {
                 if (member.getStatus() == MemberStatus.ACTIVE) {
-                    member.setStatus(MemberStatus.BLOCKED);
+                    member.setStatus(MemberStatus.BLOCKED_BY_FINES);
                     memberRepository.save(member);
                     log.warn("Member auto-blocked: memberId={} type={} unpaidFines={}",
                             member.getId(), member.getType(), totalUnpaid);
@@ -151,30 +151,6 @@ public class FineServiceImpl implements FineService {
         }
 
         log.info("=== Daily fine update completed. Updated: {} ===", updated);
-    }
-
-    // ── Fine amount calculation — respects member type ─────────────────
-    private long calculateFineAmount(Loan loan) {
-        MemberTypeConfig config = props.configFor(loan.getMember().getType());
-
-        long overdueDays = loan.overdueDays();
-
-        // Subtract grace period — STUDENT gets 2 free days, PREMIUM 1, STANDARD 0
-        long billableDays = overdueDays - config.getGracePeriodDays();
-
-        // Still within grace period → no fine
-        if (billableDays <= 0) {
-            return 0L;
-        }
-
-        long amount = billableDays * config.getDailyRate();
-
-        // Cap at book price if set
-        if (loan.getBook().getPrice() != null) {
-            amount = Math.min(amount, loan.getBook().getPrice());
-        }
-
-        return amount;
     }
 
     private Fine findById(Long id) {

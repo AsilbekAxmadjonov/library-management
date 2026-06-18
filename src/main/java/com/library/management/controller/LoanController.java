@@ -63,5 +63,18 @@ public class LoanController {
     public ResponseEntity<LoanResponse> extend(@PathVariable Long id) {
         return ResponseEntity.ok(loanService.extendLoan(id));
     }
+
+    @PostMapping("/issue-notified-member")
+    @Operation(
+            summary = "Issue a book to a notified member",
+            description = "Validates member status, loan limit, fine threshold and book availability"
+    )
+    public ResponseEntity<LoanResponse> issueNotifiedMember(
+            @Valid @RequestBody IssueLoanRequest request
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(loanService.issueNotifiedMember(request));
+    }
 }
 

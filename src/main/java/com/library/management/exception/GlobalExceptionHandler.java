@@ -1,7 +1,11 @@
 package com.library.management.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -15,27 +19,79 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex) {
-        log.warn("Business rule violation: {}", ex.getMessage());
-        return ResponseEntity.status(ex.getHttpStatus())
-                .body(new ErrorResponse(ex.getErrorCode(), ex.getMessage()));
+    public ResponseEntity<ErrorResponse> handleBusiness(
+            BusinessException ex, HttpServletRequest request) {
+        log.warn("Business exception [{}]: {} | path={}",
+                ex.getErrorCode(), ex.getMessage(), request.getRequestURI());
+        return ResponseEntity
+                .status(ex.getHttpStatus())
+                .body(ErrorResponse.of(ex.getErrorCode(), ex.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
-        Map<String, String> errors = ex.getBindingResult().getFieldErrors().stream()
+    public ResponseEntity<ErrorResponse> handleValidation(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
+        Map<String, String> fieldErrors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
                 .collect(Collectors.toMap(
                         FieldError::getField,
-                        fe -> fe.getDefaultMessage() != null ? fe.getDefaultMessage() : "Invalid"
+                        fe -> fe.getDefaultMessage() != null
+                                ? fe.getDefaultMessage() : "Invalid value",
+                        (existing, replacement) -> existing
                 ));
-        return ResponseEntity.badRequest()
-                .body(new ErrorResponse(ErrorCode.VALIDATION_ERROR, "Validation failed", errors));
+        log.warn("Validation failed: {} | path={}",
+                fieldErrors, request.getRequestURI());
+        return ResponseEntity
+                .badRequest()
+                .body(ErrorResponse.ofValidation(fieldErrors));
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            HttpServletRequest request) {
+        log.warn("Optimistic lock conflict | path={}", request.getRequestURI());
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(
+                        ErrorCode.CONCURRENT_MODIFICATION,
+                        "This resource was modified by another request. Please try again."
+                ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data integrity violation: {} | path={}",
+                ex.getMostSpecificCause().getMessage(), request.getRequestURI());
+
+        String message = ex.getMostSpecificCause().getMessage();
+        if (message != null && message.contains("isbn")) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(ErrorResponse.of(
+                            ErrorCode.DUPLICATE_RESOURCE,
+                            "A book with this ISBN already exists"
+                    ));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(
+                        ErrorCode.CONCURRENT_MODIFICATION,
+                        "Operation failed due to a data conflict. Please try again."
+                ));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
-        log.error("Unexpected error", ex);
-        return ResponseEntity.internalServerError()
-                .body(new ErrorResponse(ErrorCode.RESOURCE_NOT_FOUND, "Internal server error"));
+    public ResponseEntity<ErrorResponse> handleGeneral(
+            Exception ex, HttpServletRequest request) {
+        log.error("Unexpected error | path={}", request.getRequestURI(), ex);
+        return ResponseEntity
+                .internalServerError()
+                .body(ErrorResponse.of(
+                        ErrorCode.INTERNAL_ERROR,
+                        "An unexpected error occurred"
+                ));
     }
 }

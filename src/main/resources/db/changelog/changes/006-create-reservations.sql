@@ -1,7 +1,3 @@
--- 006-create-reservations.sql
---liquibase formatted sql
---changeset library:006-reservations
-
 CREATE SEQUENCE reservations_seq START WITH 1 INCREMENT BY 50;
 
 CREATE TABLE reservations (

@@ -3,7 +3,7 @@ spring:
     name: library-management-system
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/library_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/library-system}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -81,7 +81,7 @@ library:
       max-unpaid-threshold: 100000
 
   scheduler:
-    fine-update-cron: ${LIBRARY_SCHEDULER_FINE_UPDATE_CRON:"0 0 1 * * *"}
+    fine-update-cron: ${LIBRARY_SCHEDULER_FINE_UPDATE_CRON:0 0 1 * * *}
 
   isbn-lookup:
     timeout-seconds: 5
