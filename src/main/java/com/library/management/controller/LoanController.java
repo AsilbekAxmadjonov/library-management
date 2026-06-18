@@ -33,10 +33,10 @@ public class LoanController {
                 .body(loanService.issueLoan(request));
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{loan_id}")
     @Operation(summary = "Get loan by ID")
-    public ResponseEntity<LoanResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(loanService.getById(id));
+    public ResponseEntity<LoanResponse> getById(@PathVariable Long loan_id) {
+        return ResponseEntity.ok(loanService.getById(loan_id));
     }
 
     @GetMapping("/member/{memberId}")
@@ -46,22 +46,22 @@ public class LoanController {
         return ResponseEntity.ok(loanService.getMemberLoans(memberId));
     }
 
-    @PatchMapping("/{id}/return")
+    @PatchMapping("/{loan_id}/return")
     @Operation(
             summary = "Return a book",
             description = "Closes the loan, restores book copy count, calculates fine if overdue, notifies next in reservation queue"
     )
-    public ResponseEntity<LoanResponse> returnBook(@PathVariable Long id) {
-        return ResponseEntity.ok(loanService.returnBook(id));
+    public ResponseEntity<LoanResponse> returnBook(@PathVariable Long loan_id) {
+        return ResponseEntity.ok(loanService.returnBook(loan_id));
     }
 
-    @PatchMapping("/{id}/extend")
+    @PatchMapping("/{loan_id}/extend")
     @Operation(
             summary = "Extend loan due date",
             description = "Not allowed if overdue, max extensions reached, or there is a reservation queue for this book"
     )
-    public ResponseEntity<LoanResponse> extend(@PathVariable Long id) {
-        return ResponseEntity.ok(loanService.extendLoan(id));
+    public ResponseEntity<LoanResponse> extend(@PathVariable Long loan_id) {
+        return ResponseEntity.ok(loanService.extendLoan(loan_id));
     }
 
     @PostMapping("/issue-notified-member")

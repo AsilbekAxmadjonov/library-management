@@ -34,10 +34,10 @@ public class MemberController {
         return ResponseEntity.created(location).build();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{member_id}")
     @Operation(summary = "Get member by ID")
-    public ResponseEntity<MemberResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(memberService.getById(id));
+    public ResponseEntity<MemberResponse> getById(@PathVariable Long member_id) {
+        return ResponseEntity.ok(memberService.getById(member_id));
     }
 
     @GetMapping
@@ -46,31 +46,31 @@ public class MemberController {
         return ResponseEntity.ok(memberService.getAll());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{member_id}")
     @Operation(summary = "Update member info")
     public ResponseEntity<Void> update(
-            @PathVariable Long id,
+            @PathVariable Long member_id,
             @Valid @RequestBody CreateMemberRequest request) {
-        memberService.update(id, request);
+        memberService.update(member_id, request);
         return ResponseEntity.ok().build();
     }
 
-    @PatchMapping("/{id}/block")
+    @PatchMapping("/{member_id}/block")
     @Operation(summary = "Block a member manually")
-    public ResponseEntity<MemberResponse> block(@PathVariable Long id) {
-        return ResponseEntity.ok(memberService.block(id));
+    public ResponseEntity<MemberResponse> block(@PathVariable Long member_id) {
+        return ResponseEntity.ok(memberService.block(member_id));
     }
 
-    @PatchMapping("/{id}/activate")
+    @PatchMapping("/{member_id}/activate")
     @Operation(summary = "Activate a blocked member manually")
-    public ResponseEntity<MemberResponse> activate(@PathVariable Long id) {
-        return ResponseEntity.ok(memberService.activate(id));
+    public ResponseEntity<MemberResponse> activate(@PathVariable Long member_id) {
+        return ResponseEntity.ok(memberService.activate(member_id));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{member_id}")
     @Operation(summary = "Delete member by ID")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        memberService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long member_id) {
+        memberService.delete(member_id);
         return ResponseEntity.noContent().build();
     }
 }

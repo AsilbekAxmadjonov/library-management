@@ -39,10 +39,10 @@ public class BookController {
         return ResponseEntity.created(location).build();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{book_id}")
     @Operation(summary = "Get book by ID")
-    public ResponseEntity<BookResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(bookService.getById(id));
+    public ResponseEntity<BookResponse> getById(@PathVariable Long book_id) {
+        return ResponseEntity.ok(bookService.getById(book_id));
     }
 
     @GetMapping
@@ -59,19 +59,19 @@ public class BookController {
                 bookService.search(title, authorName, genre, page, size, sortBy));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{book_id}")
     @Operation(summary = "Update book by ID")
     public ResponseEntity<Void> update(
-            @PathVariable Long id,
+            @PathVariable Long book_id,
             @Valid @RequestBody CreateBookRequest request) {
-        bookService.update(id, request);
+        bookService.update(book_id, request);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{book_id}")
     @Operation(summary = "Delete book by ID")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        bookService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long book_id) {
+        bookService.delete(book_id);
         return ResponseEntity.noContent().build();
     }
 

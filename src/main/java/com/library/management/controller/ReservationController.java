@@ -40,11 +40,11 @@ public class ReservationController {
                 reservationService.getMemberReservations(memberId));
     }
 
-    @PatchMapping("/{id}/cancel")
+    @PatchMapping("/{reservation_id}/cancel")
     @Operation(summary = "Cancel a reservation")
     public ResponseEntity<ReservationResponse> cancel(
-            @PathVariable Long id,
+            @PathVariable Long reservation_id,
             @RequestParam Long memberId) {
-        return ResponseEntity.ok(reservationService.cancel(id, memberId));
+        return ResponseEntity.ok(reservationService.cancel(reservation_id, memberId));
     }
 }

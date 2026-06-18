@@ -34,10 +34,10 @@ public class AuthorController {
         return ResponseEntity.created(location).build();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{author_id}")
     @Operation(summary = "Get author by ID")
-    public ResponseEntity<AuthorResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(authorService.getById(id));
+    public ResponseEntity<AuthorResponse> getById(@PathVariable Long author_id) {
+        return ResponseEntity.ok(authorService.getById(author_id));
     }
 
     @GetMapping
@@ -46,19 +46,19 @@ public class AuthorController {
         return ResponseEntity.ok(authorService.getAll());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{author_id}")
     @Operation(summary = "Update author by ID")
     public ResponseEntity<Void> update(
-            @PathVariable Long id,
+            @PathVariable Long author_id,
             @Valid @RequestBody CreateAuthorRequest request) {
-        authorService.update(id, request);
+        authorService.update(author_id, request);
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{author_id}")
     @Operation(summary = "Delete author by ID")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        authorService.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long author_id) {
+        authorService.delete(author_id);
         return ResponseEntity.noContent().build();
     }
 }

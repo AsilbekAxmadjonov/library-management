@@ -26,10 +26,10 @@ public class FineController {
         return ResponseEntity.ok("Scheduler triggered successfully");
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{fine_id}")
     @Operation(summary = "Get fine by ID")
-    public ResponseEntity<FineResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(fineService.getById(id));
+    public ResponseEntity<FineResponse> getById(@PathVariable Long fine_id) {
+        return ResponseEntity.ok(fineService.getById(fine_id));
     }
 
     @GetMapping("/member/{memberId}")
@@ -39,12 +39,12 @@ public class FineController {
         return ResponseEntity.ok(fineService.getMemberFines(memberId));
     }
 
-    @PatchMapping("/{id}/pay")
+    @PatchMapping("/{fine_id}/pay")
     @Operation(
             summary = "Pay a fine",
             description = "Marks fine as paid. If member was auto-blocked due to fines, re-activates them if total unpaid drops below threshold"
     )
-    public ResponseEntity<FineResponse> pay(@PathVariable Long id) {
-        return ResponseEntity.ok(fineService.payFine(id));
+    public ResponseEntity<FineResponse> pay(@PathVariable Long fine_id) {
+        return ResponseEntity.ok(fineService.payFine(fine_id));
     }
 }
