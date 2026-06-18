@@ -3,13 +3,15 @@ package com.library.management.service;
 import com.library.management.dto.request.CreateBookRequest;
 import com.library.management.dto.response.BookResponse;
 import com.library.management.dto.response.PageResponse;
+import org.springframework.data.domain.Pageable;
 
-// service/BookService.java
 public interface BookService {
 
     BookResponse create(CreateBookRequest request);
 
     BookResponse getById(Long id);
+
+    PageResponse<BookResponse> getAll(Pageable pageable);
 
     PageResponse<BookResponse> search(String title, String authorName,
                                       String genre, int page, int size,

@@ -9,6 +9,7 @@ import com.library.management.domain.enums.MemberStatus;
 import com.library.management.domain.enums.ReservationStatus;
 import com.library.management.dto.request.IssueLoanRequest;
 import com.library.management.dto.response.LoanResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.LoanMapper;
@@ -21,6 +22,7 @@ import com.library.management.service.LoanService;
 import com.library.management.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -166,12 +168,9 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LoanResponse> getMemberLoans(Long memberId) {
-        findMember(memberId);
-        return loanRepository.findByMemberId(memberId)
-                .stream()
-                .map(loanMapper::toResponse)
-                .toList();
+    public PageResponse<LoanResponse> getMemberLoans(Long memberId, Pageable pageable) {
+        return PageResponse.from(loanRepository.findByMemberId(memberId, pageable)
+                .map(loanMapper::toResponse));
     }
 
     @Override

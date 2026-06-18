@@ -3,6 +3,7 @@ package com.library.management.service.impl;
 import com.library.management.domain.entity.Author;
 import com.library.management.dto.request.CreateAuthorRequest;
 import com.library.management.dto.response.AuthorResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.AuthorMapper;
@@ -10,6 +11,7 @@ import com.library.management.repository.AuthorRepository;
 import com.library.management.service.AuthorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,11 +52,9 @@ public class AuthorServiceImpl implements AuthorService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AuthorResponse> getAll() {
-        return authorRepository.findAll()
-                .stream()
-                .map(authorMapper::toResponse)
-                .toList();
+    public PageResponse<AuthorResponse> getAll(Pageable pageable) {
+        return PageResponse.from(authorRepository.findAll(pageable)
+                .map(authorMapper::toResponse));
     }
 
     @Override

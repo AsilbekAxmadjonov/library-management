@@ -6,6 +6,7 @@ import com.library.management.domain.enums.MemberStatus;
 import com.library.management.domain.enums.MemberType;
 import com.library.management.dto.request.CreateMemberRequest;
 import com.library.management.dto.response.MemberResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.MemberMapper;
@@ -14,6 +15,7 @@ import com.library.management.repository.MemberRepository;
 import com.library.management.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,11 +54,9 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<MemberResponse> getAll() {
-        return memberRepository.findAll()
-                .stream()
-                .map(memberMapper::toResponse)
-                .toList();
+    public PageResponse<MemberResponse> getAll(Pageable pageable) {
+        return PageResponse.from(memberRepository.findAll(pageable)
+                .map(memberMapper::toResponse));
     }
 
     @Override

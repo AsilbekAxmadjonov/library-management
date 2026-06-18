@@ -6,6 +6,7 @@ import com.library.management.domain.entity.Member;
 import com.library.management.domain.entity.Reservation;
 import com.library.management.domain.enums.MemberStatus;
 import com.library.management.domain.enums.ReservationStatus;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.dto.response.ReservationResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
@@ -16,6 +17,7 @@ import com.library.management.repository.ReservationRepository;
 import com.library.management.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -131,15 +133,9 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<ReservationResponse> getMemberReservations(Long memberId) {
-        if (!memberRepository.existsById(memberId)) {
-            throw BusinessException.notFound("Member", memberId);
-        }
-        return reservationRepository.findByMemberId(memberId)
-                .stream()
-                .map(reservationMapper::toResponse)
-                .toList();
+    public PageResponse<ReservationResponse> getMemberReservations(Long memberId, Pageable pageable) {
+        return PageResponse.from(reservationRepository.findByMemberId(memberId, pageable)
+                .map(reservationMapper::toResponse));
     }
 
     @Override

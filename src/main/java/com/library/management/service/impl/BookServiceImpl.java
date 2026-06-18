@@ -61,6 +61,12 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    public PageResponse<BookResponse> getAll(Pageable pageable) {
+        return PageResponse.from(bookRepository.findAll(pageable)
+                .map(bookMapper::toResponse));
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public PageResponse<BookResponse> search(String title, String authorName,
                                              String genre, int page, int size,

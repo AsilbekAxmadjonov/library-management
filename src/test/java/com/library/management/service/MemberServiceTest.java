@@ -6,6 +6,7 @@ import com.library.management.domain.enums.MemberStatus;
 import com.library.management.domain.enums.MemberType;
 import com.library.management.dto.request.CreateMemberRequest;
 import com.library.management.dto.response.MemberResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.MemberMapper;
@@ -19,6 +20,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -117,16 +122,22 @@ class MemberServiceTest {
                         .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
     }
 
-
     @Test
-    @DisplayName("getAll — returns mapped list")
-    void getAll_returnsList() {
-        when(memberRepository.findAll()).thenReturn(List.of(member));
+    @DisplayName("getAll — returns paged response")
+    void getAll_returnsPagedResponse() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Member> page = new PageImpl<>(List.of(member), pageable, 1);
+
+        when(memberRepository.findAll(pageable)).thenReturn(page);
         when(memberMapper.toResponse(member)).thenReturn(memberResponse);
 
-        List<MemberResponse> result = memberService.getAll();
+        PageResponse<MemberResponse> result = memberService.getAll(pageable);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).email()).isEqualTo("asilbek@example.com");
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.page()).isEqualTo(0);
+        assertThat(result.size()).isEqualTo(10);
     }
 
     @Test
@@ -205,7 +216,6 @@ class MemberServiceTest {
 
         memberService.block(1L);
 
-        // blocking is not rejected — it just logs a warning
         assertThat(member.getStatus()).isEqualTo(MemberStatus.BLOCKED_MANUALLY);
     }
 
@@ -222,7 +232,6 @@ class MemberServiceTest {
         assertThat(member.getStatus()).isEqualTo(MemberStatus.ACTIVE);
         verify(memberRepository).save(member);
     }
-
 
     @Test
     @DisplayName("delete — existing id: repository delete called")

@@ -2,17 +2,18 @@ package com.library.management.service;
 
 import com.library.management.dto.request.CreateMemberRequest;
 import com.library.management.dto.response.MemberResponse;
+import com.library.management.dto.response.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
-// service/MemberService.java
 public interface MemberService {
 
     MemberResponse create(CreateMemberRequest request);
 
     MemberResponse getById(Long id);
 
-    List<MemberResponse> getAll();
+    PageResponse<MemberResponse> getAll(Pageable pageable);
 
     MemberResponse update(Long id, CreateMemberRequest request);
 
