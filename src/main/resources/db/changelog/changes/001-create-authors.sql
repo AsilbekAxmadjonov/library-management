@@ -1,6 +1,5 @@
 
-
-CREATE SEQUENCE authors_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE authors_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE authors (
                          id              BIGINT PRIMARY KEY DEFAULT nextval('authors_seq'),

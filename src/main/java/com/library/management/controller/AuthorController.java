@@ -7,10 +7,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -23,11 +24,14 @@ public class AuthorController {
 
     @PostMapping
     @Operation(summary = "Create a new author")
-    public ResponseEntity<AuthorResponse> create(
-            @Valid @RequestBody CreateAuthorRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(authorService.create(request));
+    public ResponseEntity<Void> create(@Valid @RequestBody CreateAuthorRequest request) {
+        AuthorResponse created = authorService.create(request);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).build();
     }
 
     @GetMapping("/{id}")
@@ -44,10 +48,11 @@ public class AuthorController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update author by ID")
-    public ResponseEntity<AuthorResponse> update(
+    public ResponseEntity<Void> update(
             @PathVariable Long id,
             @Valid @RequestBody CreateAuthorRequest request) {
-        return ResponseEntity.ok(authorService.update(id, request));
+        authorService.update(id, request);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")

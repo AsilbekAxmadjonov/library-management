@@ -16,6 +16,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Fine extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "fines_generator")
+    @SequenceGenerator(name = "fines_generator", sequenceName = "fines_seq", allocationSize = 1)
+    @Column(name = "fine_id")
+    private Long id;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "loan_id", nullable = false, unique = true)
     private Loan loan;

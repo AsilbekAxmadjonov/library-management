@@ -1,6 +1,5 @@
 package com.library.management.domain.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -15,6 +14,12 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 public class Author extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "authors_generator")
+    @SequenceGenerator(name = "authors_generator", sequenceName = "authors_seq", allocationSize = 1)
+    @Column(name = "author_id")
+    private Long id;
 
     @Column(nullable = false, length = 100)
     private String firstName;

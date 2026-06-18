@@ -9,8 +9,7 @@ public interface ReservationMapper {
 
     @Mapping(target = "memberId",       source = "member.id")
     @Mapping(target = "memberFullName",
-            expression = "java(reservation.getMember().getFirstName() + \" \" + reservation.getMember().getLastName())"
-    )
+            expression = "java(reservation.getMember() != null ? reservation.getMember().getFirstName() + \" \" + reservation.getMember().getLastName() : null)"    )
     @Mapping(target = "bookId",         source = "book.id")
     @Mapping(target = "bookTitle",      source = "book.title")
     ReservationResponse toResponse(Reservation reservation);

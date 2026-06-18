@@ -3,7 +3,6 @@ package com.library.management.exception;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
-// exception/BusinessException.java
 @Getter
 public class BusinessException extends RuntimeException {
     private final ErrorCode errorCode;

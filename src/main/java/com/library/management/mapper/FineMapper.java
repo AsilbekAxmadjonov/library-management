@@ -7,13 +7,10 @@ import org.mapstruct.*;
 @Mapper(componentModel = "spring")
 public interface FineMapper {
 
-    // Fine → FineResponse: flatten loan → member chain
     @Mapping(target = "loanId",       source = "loan.id")
     @Mapping(target = "memberId",     source = "loan.member.id")
     @Mapping(target = "memberFullName",
-            expression = "java(fine.getLoan().getMember().getFirstName() + \" \" + fine.getLoan().getMember().getLastName())"
-    )
+            expression = "java(fine.getLoan() != null && fine.getLoan().getMember() != null ? fine.getLoan().getMember().getFirstName() + \" \" + fine.getLoan().getMember().getLastName() : null)"    )
     FineResponse toResponse(Fine fine);
 
-    // No toEntity — Fine is always created by FineService logic, not from a request DTO
 }

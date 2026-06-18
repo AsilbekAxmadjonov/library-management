@@ -1,5 +1,5 @@
 
-CREATE SEQUENCE books_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE books_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE books (
                        id                  BIGINT PRIMARY KEY DEFAULT nextval('books_seq'),

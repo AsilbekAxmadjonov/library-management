@@ -18,6 +18,12 @@ import java.util.List;
 @NoArgsConstructor
 public class Member extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "members_generator")
+    @SequenceGenerator(name = "members_generator", sequenceName = "members_seq", allocationSize = 1)
+    @Column(name = "member_id")
+    private Long id;
+
     @Column(nullable = false, length = 100)
     private String firstName;
 

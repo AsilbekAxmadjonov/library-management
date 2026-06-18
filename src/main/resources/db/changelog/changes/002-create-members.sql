@@ -1,6 +1,6 @@
 
 
-CREATE SEQUENCE members_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE members_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE members (
                          id              BIGINT PRIMARY KEY DEFAULT nextval('members_seq'),

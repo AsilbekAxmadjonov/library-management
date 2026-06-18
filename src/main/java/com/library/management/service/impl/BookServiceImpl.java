@@ -24,8 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Set;
 
-// service/impl/BookServiceImpl.java
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -37,6 +37,9 @@ public class BookServiceImpl implements BookService {
     private final BookMapper bookMapper;
     private final IsbnLookupService isbnLookupService;
 
+    private static final Set<String> ALLOWED_SORT_FIELDS =
+            Set.of("id", "title", "publicationYear", "genre");
+
     @Override
     public BookResponse create(CreateBookRequest request) {
         Author author = authorRepository.findById(request.authorId())
@@ -44,7 +47,7 @@ public class BookServiceImpl implements BookService {
 
         Book book = bookMapper.toEntity(request);
         book.setAuthor(author);
-        book.setAvailableCopies(request.totalCopies()); // all copies available on create
+        book.setAvailableCopies(request.totalCopies());
 
         Book saved = bookRepository.save(book);
         log.info("Book created: id={} title={}", saved.getId(), saved.getTitle());
@@ -62,6 +65,14 @@ public class BookServiceImpl implements BookService {
     public PageResponse<BookResponse> search(String title, String authorName,
                                              String genre, int page, int size,
                                              String sortBy) {
+        if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR,
+                    "Invalid sort field '" + sortBy + "'. Allowed values: " + ALLOWED_SORT_FIELDS,
+                    HttpStatus.BAD_REQUEST
+            );
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         Page<Book> result = bookRepository.searchBooks(title, authorName, genre, pageable);
         return PageResponse.from(result.map(bookMapper::toResponse));
@@ -71,7 +82,6 @@ public class BookServiceImpl implements BookService {
     public BookResponse update(Long id, CreateBookRequest request) {
         Book book = findById(id);
 
-        // Adjust availableCopies by the delta if totalCopies changed
         int delta = request.totalCopies() - book.getTotalCopies();
         book.setAvailableCopies(Math.max(0, book.getAvailableCopies() + delta));
 
@@ -97,19 +107,15 @@ public class BookServiceImpl implements BookService {
 
     @Override
     public BookResponse createByIsbn(String isbn, Long authorId, Integer totalCopies) {
-
-        // Step 1: check if this ISBN already exists in our DB
         if (bookRepository.existsByIsbn(isbn)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
                     "A book with ISBN " + isbn + " already exists in the library",
                     HttpStatus.CONFLICT);
         }
 
-        // Step 2: validate author exists
         Author author = authorRepository.findById(authorId)
                 .orElseThrow(() -> BusinessException.notFound("Author", authorId));
 
-        // Step 3: fetch data from Open Library
         OpenLibraryBookDto dto = isbnLookupService.fetchByIsbn(isbn);
 
         if (dto == null) {
@@ -119,11 +125,8 @@ public class BookServiceImpl implements BookService {
                     HttpStatus.NOT_FOUND);
         }
 
-        // Step 4: extract publication year from publishDate string
-        // Open Library returns various formats: "2008", "August 1, 2008", "2008-01-01"
         int publicationYear = extractYear(dto.publishDate());
 
-        // Step 5: build the Book entity from fetched data
         Book book = new Book();
         book.setIsbn(isbn);
         book.setTitle(dto.title());
@@ -132,7 +135,6 @@ public class BookServiceImpl implements BookService {
         book.setTotalCopies(totalCopies != null ? totalCopies : 1);
         book.setAvailableCopies(book.getTotalCopies());
 
-        // Save and return
         Book saved = bookRepository.save(book);
 
         log.info("Book created via ISBN lookup: id={} title='{}' isbn={}",
@@ -141,13 +143,10 @@ public class BookServiceImpl implements BookService {
         return bookMapper.toResponse(saved);
     }
 
-    // ── Extract year from various date formats ─────────────────────
-    // Open Library is inconsistent: "2008", "August 1, 2008", "2008-01-01"
     private int extractYear(String publishDate) {
         if (publishDate == null || publishDate.isBlank()) {
-            return LocalDate.now().getYear(); // fallback to current year
+            return LocalDate.now().getYear();
         }
-        // Find any 4-digit number that looks like a year (1800–2099)
         java.util.regex.Matcher matcher =
                 java.util.regex.Pattern
                         .compile("(1[89]\\d{2}|20\\d{2})")

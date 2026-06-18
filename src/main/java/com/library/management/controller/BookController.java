@@ -8,14 +8,20 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import java.net.URI;
 
 @RestController
 @RequestMapping("/api/v1/books")
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "Books", description = "Manage books and search catalog")
 public class BookController {
 
@@ -23,11 +29,14 @@ public class BookController {
 
     @PostMapping
     @Operation(summary = "Add a new book")
-    public ResponseEntity<BookResponse> create(
-            @Valid @RequestBody CreateBookRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(bookService.create(request));
+    public ResponseEntity<Void> create(@Valid @RequestBody CreateBookRequest request) {
+        BookResponse created = bookService.create(request);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).build();
     }
 
     @GetMapping("/{id}")
@@ -39,33 +48,24 @@ public class BookController {
     @GetMapping
     @Operation(summary = "Search and filter books with pagination")
     public ResponseEntity<PageResponse<BookResponse>> search(
-            @Parameter(description = "Filter by title (partial match)")
             @RequestParam(required = false) String title,
-
-            @Parameter(description = "Filter by author name (partial match)")
             @RequestParam(required = false) String authorName,
-
-            @Parameter(description = "Filter by genre (exact match)")
             @RequestParam(required = false) String genre,
-
-            @Parameter(description = "Page number, starts at 0")
-            @RequestParam(defaultValue = "0") int page,
-
-            @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "10") int size,
-
-            @Parameter(description = "Sort field (e.g. title, publicationYear)")
-            @RequestParam(defaultValue = "title") String sortBy) {
+            @RequestParam(defaultValue = "0")  @Min(0)            int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100)  int size,
+            @RequestParam(defaultValue = "title")                 String sortBy
+    ) {
         return ResponseEntity.ok(
                 bookService.search(title, authorName, genre, page, size, sortBy));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update book by ID")
-    public ResponseEntity<BookResponse> update(
+    public ResponseEntity<Void> update(
             @PathVariable Long id,
             @Valid @RequestBody CreateBookRequest request) {
-        return ResponseEntity.ok(bookService.update(id, request));
+        bookService.update(id, request);
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}")
@@ -82,7 +82,7 @@ public class BookController {
                     "then creates the book automatically. " +
                     "Only authorId and totalCopies need to be provided manually."
     )
-    public ResponseEntity<BookResponse> createByIsbn(
+    public ResponseEntity<Void> createByIsbn(
             @Parameter(description = "ISBN-10 or ISBN-13", example = "978-0132350884")
             @PathVariable String isbn,
 
@@ -92,8 +92,12 @@ public class BookController {
             @Parameter(description = "Number of physical copies (default: 1)")
             @RequestParam(required = false, defaultValue = "1") Integer totalCopies) {
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(bookService.createByIsbn(isbn, authorId, totalCopies));
+        BookResponse created = bookService.createByIsbn(isbn, authorId, totalCopies);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/api/v1/books/{id}")
+                .buildAndExpand(created.id())
+                .toUri();
+        return ResponseEntity.created(location).build();
     }
 }

@@ -1,5 +1,6 @@
 package com.library.management.service.impl;
 
+import com.library.management.config.LibraryProperties;
 import com.library.management.domain.entity.Book;
 import com.library.management.domain.entity.Member;
 import com.library.management.domain.entity.Reservation;
@@ -20,6 +21,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -34,6 +36,8 @@ public class ReservationServiceImpl implements ReservationService {
     private final MemberRepository memberRepository;
     private final BookRepository bookRepository;
     private final ReservationMapper reservationMapper;
+    private final LibraryProperties props;
+    private final Clock clock;
 
     @Override
     public ReservationResponse reserve(Long memberId, Long bookId) {
@@ -71,7 +75,7 @@ public class ReservationServiceImpl implements ReservationService {
         Reservation reservation = new Reservation();
         reservation.setMember(member);
         reservation.setBook(book);
-        reservation.setReservedAt(LocalDateTime.now());
+        reservation.setReservedAt(LocalDateTime.now(clock));
         reservation.setStatus(ReservationStatus.WAITING);
 
         Reservation saved = reservationRepository.save(reservation);
@@ -87,18 +91,18 @@ public class ReservationServiceImpl implements ReservationService {
                 .orElseThrow(() -> BusinessException.notFound("Reservation", reservationId));
 
         if (!reservation.getMember().getId().equals(memberId)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.UNAUTHORIZED_ACTION,
                     "You can only cancel your own reservations",
                     HttpStatus.FORBIDDEN);
         }
 
         if (reservation.getStatus() == ReservationStatus.FULFILLED) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Cannot cancel a fulfilled reservation",
                     HttpStatus.CONFLICT);
         }
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Reservation is already cancelled",
                     HttpStatus.CONFLICT);
         }
@@ -112,7 +116,8 @@ public class ReservationServiceImpl implements ReservationService {
 
         if (previousStatus == ReservationStatus.NOTIFIED) {
             Book book = bookRepository.findById(reservation.getBook().getId())
-                    .orElseThrow(() -> BusinessException.notFound("Book", reservation.getBook().getId()));
+                    .orElseThrow(() -> BusinessException.notFound("Book",
+                            reservation.getBook().getId()));
             book.setAvailableCopies(book.getAvailableCopies() + 1);
             bookRepository.save(book);
             log.info("Available copies restored after NOTIFIED cancellation: " +
@@ -159,7 +164,9 @@ public class ReservationServiceImpl implements ReservationService {
                 .findFirstByBookIdAndStatusOrderByReservedAtAsc(freshBook.getId())
                 .ifPresent(next -> {
                     next.setStatus(ReservationStatus.NOTIFIED);
-                    next.setExpiresAt(LocalDate.now().plusDays(3));
+                    int expiryDays = props.getReservation().getNotificationExpiryDays();
+                    next.setExpiresAt(LocalDate.now(clock).plusDays(expiryDays));
+
                     reservationRepository.save(next);
 
                     freshBook.setAvailableCopies(freshBook.getAvailableCopies() - 1);
@@ -167,10 +174,10 @@ public class ReservationServiceImpl implements ReservationService {
                     bookRepository.save(freshBook);
 
                     log.info("Next in queue notified: reservationId={} memberId={} " +
-                                    "bookId={} expiresAt={} availableCopies={}",
+                                    "bookId={} expiresAt={} availableCopies={} expiryDays={}",
                             next.getId(), next.getMember().getId(),
                             freshBook.getId(), next.getExpiresAt(),
-                            freshBook.getAvailableCopies());
+                            freshBook.getAvailableCopies(), expiryDays);
                 });
     }
 
@@ -178,7 +185,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Scheduled(cron = "${library.scheduler.fine-update-cron}")
     public void expireNotifications() {
         log.info("=== Reservation expiry check started ===");
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         List<Reservation> expired =
                 reservationRepository.findExpiredNotifications(today);

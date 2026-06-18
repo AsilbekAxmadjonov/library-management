@@ -65,7 +65,7 @@ public class FineServiceImpl implements FineService {
         Fine fine = findById(fineId);
 
         if (fine.getStatus() == FineStatus.PAID) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR,
+            throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Fine " + fineId + " is already paid",
                     HttpStatus.CONFLICT);
         }
@@ -119,8 +119,10 @@ public class FineServiceImpl implements FineService {
             }
 
             long amount = billableDays * config.getDailyRate();
-            if (loan.getBook().getPrice() != null) {
-                amount = Math.min(amount, loan.getBook().getPrice());
+
+            Long bookPrice = loan.getBook().getPrice();
+            if (bookPrice != null && bookPrice > 0) {
+                amount = Math.min(amount, bookPrice);
             }
 
             Fine fine = existing.orElse(new Fine());

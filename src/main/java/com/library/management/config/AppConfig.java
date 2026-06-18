@@ -5,7 +5,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
-// config/AppConfig.java
+import java.time.Clock;
+import java.time.ZoneId;
+
 @Configuration
 public class AppConfig {
 
@@ -14,7 +16,6 @@ public class AppConfig {
 
     @Bean
     public RestClient restClient() {
-        // Configure underlying HTTP client with timeout
         java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(timeoutSeconds))
                 .build();
@@ -26,5 +27,10 @@ public class AppConfig {
                 .defaultHeader("Accept", "application/json")
                 .defaultHeader("User-Agent", "LibraryManagementSystem/1.0")
                 .build();
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.system(ZoneId.of("Asia/Tashkent"));
     }
 }

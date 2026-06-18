@@ -15,6 +15,12 @@ import java.util.List;
 @NoArgsConstructor
 public class Book extends BaseEntity {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "books_generator")
+    @SequenceGenerator(name = "books_generator", sequenceName = "books_seq", allocationSize = 1)
+    @Column(name = "book_id")
+    private Long id;
+
     @Column(nullable = false)
     private String title;
 
@@ -40,7 +46,6 @@ public class Book extends BaseEntity {
     @Column(nullable = false)
     private int publicationYear;
 
-    // For fine cap (Task 6 bonus): book price
     private Long price;
 
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL)

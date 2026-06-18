@@ -1,6 +1,6 @@
 
 
-CREATE SEQUENCE loans_seq START WITH 1 INCREMENT BY 50;
+CREATE SEQUENCE loans_seq START WITH 1 INCREMENT BY 1;
 
 CREATE TABLE loans (
                        id              BIGINT PRIMARY KEY DEFAULT nextval('loans_seq'),
