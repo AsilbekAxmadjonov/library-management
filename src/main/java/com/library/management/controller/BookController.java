@@ -28,15 +28,15 @@ public class BookController {
     private final BookService bookService;
 
     @PostMapping
-    @Operation(summary = "Create a new book")
-    public ResponseEntity<Void> create(@Valid @RequestBody CreateBookRequest request) {
+    @Operation(summary = "Add a new book")
+    public ResponseEntity<BaseResponse<Void>> create(@Valid @RequestBody CreateBookRequest request) {
         BookResponse created = bookService.create(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.id())
                 .toUri();
-        return ResponseEntity.created(location).build();
+        return ResponseEntity.created(location).body(BaseResponse.success(null));
     }
 
     @GetMapping("/{book_id}")
@@ -54,11 +54,11 @@ public class BookController {
 
     @PutMapping("/{book_id}")
     @Operation(summary = "Update book by ID")
-    public BaseResponse<Void> update(
+    public BaseResponse<String> update(
             @PathVariable Long book_id,
             @Valid @RequestBody CreateBookRequest request) {
         bookService.update(book_id, request);
-        return BaseResponse.success(null);
+        return BaseResponse.success("Successfully updated");
     }
 
     @DeleteMapping("/{book_id}")
