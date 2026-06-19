@@ -36,6 +36,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public List<BookResponse> getMostReadBooks(int limit) {
+        log.debug("getMostReadBooks requested: limit={}", limit);
         return bookRepository.findMostReadBooks(PageRequest.of(0, limit))
                 .stream()
                 .map(row -> bookMapper.toResponse((com.library.management.domain.entity.Book) row[0]))
@@ -45,6 +46,7 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public List<MemberResponse> getMembersWithOverdueLoans() {
         LocalDate today = LocalDate.now(clock);
+        log.debug("getMembersWithOverdueLoans: date={}", today);
         return loanRepository.findMembersWithOverdueLoans(today)
                 .stream()
                 .map(memberMapper::toResponse)
@@ -53,10 +55,13 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public FineStatsResponse getFineStatistics() {
+        log.debug("getFineStatistics requested");
         Object[] stats = fineRepository.getFineStats();
         long total    = stats[0] != null ? ((Number) stats[0]).longValue() : 0L;
         long totalAmt = stats[1] != null ? ((Number) stats[1]).longValue() : 0L;
         long paidAmt  = stats[2] != null ? ((Number) stats[2]).longValue() : 0L;
+        log.info("Fine statistics: totalFines={} totalAmount={} paidAmount={} unpaidAmount={}",
+                total, totalAmt, paidAmt, totalAmt - paidAmt);
         return new FineStatsResponse(total, totalAmt, paidAmt, totalAmt - paidAmt);
     }
 }

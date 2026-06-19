@@ -29,8 +29,11 @@ public class AuthorServiceImpl implements AuthorService {
 
     @Override
     public AuthorResponse create(CreateAuthorRequest request) {
+        log.info("create author requested: firstName={} lastName={}", request.firstName(), request.lastName());
+
         if (authorRepository.existsByFirstNameAndLastName(
                 request.firstName(), request.lastName())) {
+            log.warn("Duplicate author rejected: {} {}", request.firstName(), request.lastName());
             throw new BusinessException(
                     ErrorCode.DUPLICATE_RESOURCE,
                     "Author already exists: " + request.firstName() + " " + request.lastName(),
@@ -47,25 +50,31 @@ public class AuthorServiceImpl implements AuthorService {
     @Override
     @Transactional(readOnly = true)
     public AuthorResponse getById(Long id) {
+        log.debug("getById author: id={}", id);
         return authorMapper.toResponse(findById(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<AuthorResponse> getAll(Pageable pageable) {
+        log.debug("getAll authors: page={} size={}", pageable.getPageNumber(), pageable.getPageSize());
         return PageResponse.from(authorRepository.findAll(pageable)
                 .map(authorMapper::toResponse));
     }
 
     @Override
     public AuthorResponse update(Long id, CreateAuthorRequest request) {
+        log.info("update author requested: id={}", id);
         Author author = findById(id);
         authorMapper.updateEntity(request, author);
-        return authorMapper.toResponse(authorRepository.save(author));
+        Author saved = authorRepository.save(author);
+        log.info("Author updated: id={} name={} {}", saved.getId(), saved.getFirstName(), saved.getLastName());
+        return authorMapper.toResponse(saved);
     }
 
     @Override
     public void delete(Long id) {
+        log.info("delete author requested: id={}", id);
         Author author = findById(id);
         authorRepository.delete(author);
         log.info("Author deleted: id={}", id);

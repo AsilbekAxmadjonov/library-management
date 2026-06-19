@@ -33,4 +33,7 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
         AND l.status IN ('ACTIVE', 'OVERDUE')
     """)
     List<Member> findMembersWithOverdueLoans(@Param("today") LocalDate today);
+
+    @Query("SELECT COUNT(l) FROM Loan l WHERE l.status = :status")
+    long countByStatus(@Param("status") LoanStatus status);
 }

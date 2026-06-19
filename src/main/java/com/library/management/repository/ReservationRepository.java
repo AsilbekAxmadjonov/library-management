@@ -58,4 +58,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("book_id") Long bookId,
             @Param("status") String status
     );
+
+    long countByStatus(ReservationStatus status);
 }

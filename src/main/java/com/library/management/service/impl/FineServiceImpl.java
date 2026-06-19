@@ -1,5 +1,6 @@
 package com.library.management.service.impl;
 
+import com.library.management.config.LibraryMetrics;
 import com.library.management.config.LibraryProperties;
 import com.library.management.config.LibraryProperties.MemberTypeConfig;
 import com.library.management.domain.entity.Fine;
@@ -41,6 +42,7 @@ public class FineServiceImpl implements FineService {
     private final FineMapper fineMapper;
     private final LibraryProperties props;
     private final Clock clock;
+    private final LibraryMetrics metrics;
 
     @Override
     @Transactional(readOnly = true)
@@ -62,9 +64,11 @@ public class FineServiceImpl implements FineService {
 
     @Override
     public FineResponse payFine(Long fineId) {
+        log.info("payFine requested: fineId={}", fineId);
         Fine fine = findById(fineId);
 
         if (fine.getStatus() == FineStatus.PAID) {
+            log.warn("Fine already paid: fineId={}", fineId);
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Fine " + fineId + " is already paid",
                     HttpStatus.CONFLICT);
@@ -73,6 +77,7 @@ public class FineServiceImpl implements FineService {
         fine.setStatus(FineStatus.PAID);
         fine.setPaidAt(LocalDateTime.now(clock));
         fineRepository.save(fine);
+        metrics.getFinePaidCounter().increment();
 
         Member member = fine.getLoan().getMember();
         MemberTypeConfig config = props.configFor(member.getType());
@@ -111,6 +116,8 @@ public class FineServiceImpl implements FineService {
             long billableDays = days - config.getGracePeriodDays();
 
             if (billableDays <= 0) {
+                log.debug("Loan {} in grace period, marking OVERDUE but no fine: memberType={}",
+                        loan.getId(), loan.getMember().getType());
                 if (loan.getStatus() != LoanStatus.OVERDUE) {
                     loan.setStatus(LoanStatus.OVERDUE);
                     loanRepository.save(loan);
@@ -131,6 +138,7 @@ public class FineServiceImpl implements FineService {
             fine.setStatus(FineStatus.PENDING);
             fine.setCalculatedUpTo(today);
             fineRepository.save(fine);
+            metrics.getFineCreatedCounter().increment();
 
             if (loan.getStatus() != LoanStatus.OVERDUE) {
                 loan.setStatus(LoanStatus.OVERDUE);
@@ -144,6 +152,7 @@ public class FineServiceImpl implements FineService {
                 if (member.getStatus() == MemberStatus.ACTIVE) {
                     member.setStatus(MemberStatus.BLOCKED_BY_FINES);
                     memberRepository.save(member);
+                    metrics.getFineCreatedCounter().increment();
                     log.warn("Member auto-blocked: memberId={} type={} unpaidFines={}",
                             member.getId(), member.getType(), totalUnpaid);
                 }

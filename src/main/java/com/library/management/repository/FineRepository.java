@@ -36,4 +36,6 @@ public interface FineRepository extends JpaRepository<Fine, Long> {
         FROM Fine f
     """)
     Object[] getFineStats();
+
+    long countByStatus(FineStatus status);
 }

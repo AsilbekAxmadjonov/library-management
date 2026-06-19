@@ -1,5 +1,6 @@
 package com.library.management.service.impl;
 
+import com.library.management.config.LibraryMetrics;
 import com.library.management.config.LibraryProperties;
 import com.library.management.domain.entity.Book;
 import com.library.management.domain.entity.Member;
@@ -40,9 +41,11 @@ public class ReservationServiceImpl implements ReservationService {
     private final ReservationMapper reservationMapper;
     private final LibraryProperties props;
     private final Clock clock;
+    private final LibraryMetrics metrics;
 
     @Override
     public ReservationResponse reserve(Long memberId, Long bookId) {
+        log.info("reserve requested: memberId={} bookId={}", memberId, bookId);
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> BusinessException.notFound("Member", memberId));
         Book book = bookRepository.findById(bookId)
@@ -50,12 +53,15 @@ public class ReservationServiceImpl implements ReservationService {
 
         if (member.getStatus() == MemberStatus.BLOCKED_BY_FINES
                 || member.getStatus() == MemberStatus.BLOCKED_MANUALLY) {
+            log.warn("Reserve rejected — member blocked: memberId={} status={}", memberId, member.getStatus());
             throw new BusinessException(ErrorCode.MEMBER_BLOCKED,
                     "Blocked members cannot reserve books",
                     HttpStatus.FORBIDDEN);
         }
 
         if (book.getAvailableCopies() > 0) {
+            log.warn("Reserve rejected — copies available: bookId={} available={}",
+                    bookId, book.getAvailableCopies());
             throw new BusinessException(ErrorCode.VALIDATION_ERROR,
                     "Book has available copies — borrow it directly",
                     HttpStatus.BAD_REQUEST);
@@ -69,6 +75,7 @@ public class ReservationServiceImpl implements ReservationService {
                         memberId, bookId, ReservationStatus.NOTIFIED);
 
         if (alreadyWaiting || alreadyNotified) {
+            log.warn("Reserve rejected — already in queue: memberId={} bookId={}", memberId, bookId);
             throw new BusinessException(ErrorCode.ALREADY_RESERVED,
                     "You are already in the queue for: " + book.getTitle(),
                     HttpStatus.CONFLICT);
@@ -81,6 +88,8 @@ public class ReservationServiceImpl implements ReservationService {
         reservation.setStatus(ReservationStatus.WAITING);
 
         Reservation saved = reservationRepository.save(reservation);
+        metrics.getReservationCreatedCounter().increment();
+
         log.info("Reservation created: reservationId={} memberId={} bookId={}",
                 saved.getId(), memberId, bookId);
 
@@ -89,21 +98,25 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     public ReservationResponse cancel(Long reservationId, Long memberId) {
+        log.info("cancel requested: reservationId={} memberId={}", reservationId, memberId);
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> BusinessException.notFound("Reservation", reservationId));
 
         if (!reservation.getMember().getId().equals(memberId)) {
+            log.warn("Cancel rejected — not owner: reservationId={} requestedBy={}", reservationId, memberId);
             throw new BusinessException(ErrorCode.UNAUTHORIZED_ACTION,
                     "You can only cancel your own reservations",
                     HttpStatus.FORBIDDEN);
         }
 
         if (reservation.getStatus() == ReservationStatus.FULFILLED) {
+            log.warn("Cancel rejected — already fulfilled: reservationId={}", reservationId);
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Cannot cancel a fulfilled reservation",
                     HttpStatus.CONFLICT);
         }
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            log.warn("Cancel rejected — already cancelled: reservationId={}", reservationId);
             throw new BusinessException(ErrorCode.INVALID_STATE_TRANSITION,
                     "Reservation is already cancelled",
                     HttpStatus.CONFLICT);
@@ -112,6 +125,7 @@ public class ReservationServiceImpl implements ReservationService {
         ReservationStatus previousStatus = reservation.getStatus();
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservationRepository.save(reservation);
+        metrics.getReservationCancelledCounter().increment();
 
         log.info("Reservation cancelled: id={} memberId={} previousStatus={}",
                 reservationId, memberId, previousStatus);
@@ -189,6 +203,7 @@ public class ReservationServiceImpl implements ReservationService {
         for (Reservation reservation : expired) {
             reservation.setStatus(ReservationStatus.CANCELLED);
             reservationRepository.save(reservation);
+            metrics.getReservationExpiredCounter().increment();
 
             log.info("Reservation expired: id={} memberId={} bookId={}",
                     reservation.getId(),

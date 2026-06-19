@@ -34,7 +34,9 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public MemberResponse create(CreateMemberRequest request) {
+        log.info("create member requested: email={}", request.email());
         if (memberRepository.existsByEmail(request.email())) {
+            log.warn("Duplicate email rejected: email={}", request.email());
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
                     "Email already in use: " + request.email(),
                     HttpStatus.CONFLICT);
@@ -49,22 +51,26 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional(readOnly = true)
     public MemberResponse getById(Long id) {
+        log.debug("getById member: id={}", id);
         return memberMapper.toResponse(findById(id));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResponse<MemberResponse> getAll(Pageable pageable) {
+        log.debug("getAll members: page={} size={}", pageable.getPageNumber(), pageable.getPageSize());
         return PageResponse.from(memberRepository.findAll(pageable)
                 .map(memberMapper::toResponse));
     }
 
     @Override
     public MemberResponse update(Long id, CreateMemberRequest request) {
+        log.info("update member requested: id={}", id);
         Member member = findById(id);
 
         if (!member.getEmail().equals(request.email())
                 && memberRepository.existsByEmail(request.email())) {
+            log.warn("Update rejected — email already in use: email={} memberId={}", request.email(), id);
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
                     "Email already in use: " + request.email(),
                     HttpStatus.CONFLICT);
@@ -73,17 +79,21 @@ public class MemberServiceImpl implements MemberService {
         if (request.phone() != null
                 && !request.phone().equals(member.getPhone())
                 && memberRepository.existsByPhone(request.phone())) {
+            log.warn("Update rejected — phone already in use: phone={} memberId={}", request.phone(), id);
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
                     "Phone number already in use: " + request.phone(),
                     HttpStatus.CONFLICT);
         }
 
         memberMapper.updateEntity(request, member);
-        return memberMapper.toResponse(memberRepository.save(member));
+        Member saved = memberRepository.save(member);
+        log.info("Member updated: id={} email={}", saved.getId(), saved.getEmail());
+        return memberMapper.toResponse(saved);
     }
 
     @Override
     public MemberResponse block(Long id) {
+        log.info("block member requested: id={}", id);
         Member member = findById(id);
 
         long activeLoans = loanRepository
@@ -104,14 +114,17 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public MemberResponse activate(Long id) {
+        log.info("activate member requested: id={}", id);
         Member member = findById(id);
         member.setStatus(MemberStatus.ACTIVE);
-        log.info("Member activated: id={}", id);
-        return memberMapper.toResponse(memberRepository.save(member));
+        memberRepository.save(member);
+        log.info("Member activated: id={} email={}", id, member.getEmail());
+        return memberMapper.toResponse(member);
     }
 
     @Override
     public void delete(Long id) {
+        log.info("delete member requested: id={}", id);
         memberRepository.delete(findById(id));
         log.info("Member deleted: id={}", id);
     }
