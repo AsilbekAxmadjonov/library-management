@@ -1,6 +1,7 @@
 package com.library.management.service.impl;
 
 import com.library.management.domain.entity.Book;
+import com.library.management.dto.projection.FineStatsProjection;
 import com.library.management.dto.response.BookResponse;
 import com.library.management.dto.response.FineStatsResponse;
 import com.library.management.dto.response.MemberResponse;
@@ -56,12 +57,16 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public FineStatsResponse getFineStatistics() {
         log.debug("getFineStatistics requested");
-        Object[] stats = fineRepository.getFineStats();
-        long total    = stats[0] != null ? ((Number) stats[0]).longValue() : 0L;
-        long totalAmt = stats[1] != null ? ((Number) stats[1]).longValue() : 0L;
-        long paidAmt  = stats[2] != null ? ((Number) stats[2]).longValue() : 0L;
+
+        FineStatsProjection stats = fineRepository.getFineStats();
+
+        long total    = stats.totalFines()  != null ? stats.totalFines()  : 0L;
+        long totalAmt = stats.totalAmount() != null ? stats.totalAmount() : 0L;
+        long paidAmt  = stats.paidAmount()  != null ? stats.paidAmount()  : 0L;
+
         log.info("Fine statistics: totalFines={} totalAmount={} paidAmount={} unpaidAmount={}",
                 total, totalAmt, paidAmt, totalAmt - paidAmt);
+
         return new FineStatsResponse(total, totalAmt, paidAmt, totalAmt - paidAmt);
     }
 }

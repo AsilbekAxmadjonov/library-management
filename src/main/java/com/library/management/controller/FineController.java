@@ -1,11 +1,17 @@
 package com.library.management.controller;
 
+import com.library.management.domain.enums.FineStatus;
 import com.library.management.dto.response.BaseResponse;
 import com.library.management.dto.response.FineResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.service.FineService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,5 +52,16 @@ public class FineController {
     )
     public ResponseEntity<BaseResponse<FineResponse>> pay(@PathVariable Long fine_id) {
         return ResponseEntity.ok(BaseResponse.success(fineService.payFine(fine_id)));
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "Get all fines",
+            description = "Optionally filter by status (PENDING or PAID)"
+    )
+    public ResponseEntity<BaseResponse<PageResponse<FineResponse>>> getAllFines(
+            @RequestParam(required = false) FineStatus status,
+            @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable) {
+        return ResponseEntity.ok(BaseResponse.success(fineService.getAllFines(status, pageable)));
     }
 }

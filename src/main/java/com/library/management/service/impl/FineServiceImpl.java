@@ -10,6 +10,7 @@ import com.library.management.domain.enums.FineStatus;
 import com.library.management.domain.enums.LoanStatus;
 import com.library.management.domain.enums.MemberStatus;
 import com.library.management.dto.response.FineResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.FineMapper;
@@ -19,6 +20,8 @@ import com.library.management.repository.MemberRepository;
 import com.library.management.service.FineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -162,6 +165,19 @@ public class FineServiceImpl implements FineService {
         }
 
         log.info("=== Daily fine update completed. Updated: {} ===", updated);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<FineResponse> getAllFines(FineStatus status, Pageable pageable) {
+        log.debug("getAllFines requested: status={} page={} size={}",
+                status, pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<Fine> fines = (status != null)
+                ? fineRepository.findByStatus(status, pageable)
+                : fineRepository.findAll(pageable);
+
+        return PageResponse.from(fines.map(fineMapper::toResponse));
     }
 
     private Fine findById(Long id) {

@@ -36,4 +36,6 @@ public interface LoanRepository extends JpaRepository<Loan, Long> {
 
     @Query("SELECT COUNT(l) FROM Loan l WHERE l.status = :status")
     long countByStatus(@Param("status") LoanStatus status);
+
+    boolean existsByMemberIdAndBookIdAndStatus(Long memberId, Long bookId, LoanStatus status);
 }

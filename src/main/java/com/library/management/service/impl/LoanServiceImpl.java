@@ -55,6 +55,7 @@ public class LoanServiceImpl implements LoanService {
         Book book = findBook(request.bookId());
 
         validateMemberCanBorrow(member);
+        validateNoActiveLoanForSameBook(member.getId(), book.getId());
         validateBookAvailable(book);
 
         book.setAvailableCopies(book.getAvailableCopies() - 1);
@@ -204,6 +205,7 @@ public class LoanServiceImpl implements LoanService {
         }
 
         validateMemberCanBorrow(member);
+        validateNoActiveLoanForSameBook(member.getId(), book.getId());
         validateBookReserved(book);
 
         book.setReservedCopies(book.getReservedCopies() - 1);
@@ -268,6 +270,17 @@ public class LoanServiceImpl implements LoanService {
         if (book.getReservedCopies() <= 0) {
             throw new BusinessException(ErrorCode.NO_COPIES_AVAILABLE,
                     "No available copies for: " + book.getTitle(),
+                    HttpStatus.CONFLICT);
+        }
+    }
+
+    private void validateNoActiveLoanForSameBook(Long memberId, Long bookId) {
+        boolean alreadyHasActiveLoan =
+                loanRepository.existsByMemberIdAndBookIdAndStatus(memberId, bookId, LoanStatus.ACTIVE);
+
+        if (alreadyHasActiveLoan) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_LOAN,
+                    "Member already has an active loan for this book",
                     HttpStatus.CONFLICT);
         }
     }
