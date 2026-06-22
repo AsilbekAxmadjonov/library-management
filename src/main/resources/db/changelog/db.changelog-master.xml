@@ -15,5 +15,6 @@
     <include file="changes/008-add-reservation-unique-constraint.sql" relativeToChangelogFile="true"/>
     <include file="changes/009-update-member-status.sql"       relativeToChangelogFile="true"/>
     <include file="changes/010-rename-id-columns.sql"       relativeToChangelogFile="true"/>
+    <include file="changes/011-add-fine-status-and-loan-overdue-indexes.sql" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
