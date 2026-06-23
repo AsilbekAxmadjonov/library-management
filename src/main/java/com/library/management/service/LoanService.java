@@ -2,6 +2,8 @@ package com.library.management.service;
 
 import com.library.management.dto.request.IssueLoanRequest;
 import com.library.management.dto.response.LoanResponse;
+import com.library.management.dto.response.PageResponse;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -16,7 +18,7 @@ public interface LoanService {
 
     LoanResponse getById(Long id);
 
-    List<LoanResponse> getMemberLoans(Long memberId);
+    PageResponse<LoanResponse> getMemberLoans(Long memberId, Pageable pageable);
 
     LoanResponse issueNotifiedMember(IssueLoanRequest issueLoanRequest);
 }

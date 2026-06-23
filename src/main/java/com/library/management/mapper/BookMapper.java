@@ -9,6 +9,7 @@ import org.mapstruct.*;
 public interface BookMapper {
 
 
+    @Mapping(target = "authorId", source = "author.id")
     @Mapping(
             target = "authorFullName",
             expression = "java(book.getAuthor() != null ? book.getAuthor().getFirstName() + \" \" + book.getAuthor().getLastName() : null)"

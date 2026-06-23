@@ -1,5 +1,6 @@
 package com.library.management.controller;
 
+import com.library.management.dto.response.BaseResponse;
 import com.library.management.dto.response.BookResponse;
 import com.library.management.dto.response.FineStatsResponse;
 import com.library.management.dto.response.MemberResponse;
@@ -23,21 +24,21 @@ public class ReportController {
 
     @GetMapping("/books/most-read")
     @Operation(summary = "Get most borrowed books")
-    public ResponseEntity<List<BookResponse>> getMostReadBooks(
+    public BaseResponse<List<BookResponse>> getMostReadBooks(
             @Parameter(description = "How many top books to return")
             @RequestParam(defaultValue = "10") int limit) {
-        return ResponseEntity.ok(reportService.getMostReadBooks(limit));
+        return BaseResponse.success(reportService.getMostReadBooks(limit));
     }
 
     @GetMapping("/members/overdue")
     @Operation(summary = "Get members who currently have overdue loans")
-    public ResponseEntity<List<MemberResponse>> getMembersWithOverdueLoans() {
-        return ResponseEntity.ok(reportService.getMembersWithOverdueLoans());
+    public BaseResponse<List<MemberResponse>> getMembersWithOverdueLoans() {
+        return BaseResponse.success(reportService.getMembersWithOverdueLoans());
     }
 
     @GetMapping("/fines/stats")
     @Operation(summary = "Get fine statistics — total count, total amount, paid vs unpaid")
-    public ResponseEntity<FineStatsResponse> getFineStats() {
-        return ResponseEntity.ok(reportService.getFineStatistics());
+    public BaseResponse<FineStatsResponse> getFineStats() {
+        return BaseResponse.success(reportService.getFineStatistics());
     }
 }

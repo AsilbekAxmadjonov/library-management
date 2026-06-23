@@ -79,9 +79,38 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - library-network          # ← add this
+    depends_on:
+      app:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+       - grafana-data:/var/lib/grafana
+    networks:
+       - library-network          # ← add this
+    depends_on:
+      - prometheus
+
 volumes:
   postgres_data:
   pgadmin_data:
+  grafana-data:
 
 networks:
   library-network:

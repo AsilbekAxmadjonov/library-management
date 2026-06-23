@@ -3,6 +3,8 @@ package com.library.management.repository;
 import com.library.management.domain.entity.Reservation;
 import com.library.management.domain.enums.ReservationStatus;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -36,7 +38,7 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     boolean existsByBookIdAndStatus(
             Long bookId, ReservationStatus status);
 
-    List<Reservation> findByMemberId(Long memberId);
+    Page<Reservation> findByMemberId(Long memberId, Pageable pageable);
 
     Optional<Reservation> findFirstByMemberIdAndBookIdAndStatus(
             Long memberId, Long bookId, ReservationStatus status);
@@ -56,4 +58,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
             @Param("book_id") Long bookId,
             @Param("status") String status
     );
+
+    long countByStatus(ReservationStatus status);
 }

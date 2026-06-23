@@ -1,5 +1,6 @@
 package com.library.management.exception;
 
+import com.library.management.dto.response.BaseResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -109,5 +110,14 @@ public class GlobalExceptionHandler {
                         ErrorCode.INTERNAL_ERROR,
                         "An unexpected error occurred"
                 ));
+    }
+
+    @ExceptionHandler(org.springframework.data.mapping.PropertyReferenceException.class)
+    public ResponseEntity<BaseResponse<Void>> handleInvalidSortProperty(
+            org.springframework.data.mapping.PropertyReferenceException ex) {
+        log.warn("Invalid sort property requested: {}", ex.getMessage());
+        return ResponseEntity.badRequest().body(
+                BaseResponse.fail("Invalid sort property: " + ex.getPropertyName(), 400, "INVALID_SORT_PROPERTY", null)
+        );
     }
 }

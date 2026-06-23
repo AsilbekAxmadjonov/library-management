@@ -1,5 +1,6 @@
 package com.library.management.service.impl;
 
+import com.library.management.config.LibraryMetrics;
 import com.library.management.config.LibraryProperties;
 import com.library.management.config.LibraryProperties.MemberTypeConfig;
 import com.library.management.domain.entity.*;
@@ -9,6 +10,7 @@ import com.library.management.domain.enums.MemberStatus;
 import com.library.management.domain.enums.ReservationStatus;
 import com.library.management.dto.request.IssueLoanRequest;
 import com.library.management.dto.response.LoanResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.LoanMapper;
@@ -21,13 +23,13 @@ import com.library.management.service.LoanService;
 import com.library.management.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -45,6 +47,7 @@ public class LoanServiceImpl implements LoanService {
     private final LoanMapper loanMapper;
     private final LibraryProperties props;
     private final Clock clock;
+    private final LibraryMetrics metrics;
 
     @Override
     public LoanResponse issueLoan(IssueLoanRequest request) {
@@ -52,6 +55,7 @@ public class LoanServiceImpl implements LoanService {
         Book book = findBook(request.bookId());
 
         validateMemberCanBorrow(member);
+        validateNoActiveLoanForSameBook(member.getId(), book.getId());
         validateBookAvailable(book);
 
         book.setAvailableCopies(book.getAvailableCopies() - 1);
@@ -68,6 +72,7 @@ public class LoanServiceImpl implements LoanService {
         loan.setExtensionCount(0);
 
         Loan saved = loanRepository.save(loan);
+        metrics.getLoanIssuedCounter().increment();
         reservationService.fulfillReservation(member.getId(), book.getId());
 
         log.info("Loan issued: loanId={} memberId={} bookId={} memberType={} due={}",
@@ -79,9 +84,11 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     public LoanResponse returnBook(Long loanId) {
+        log.info("returnBook loanId: {}", loanId);
         Loan loan = findLoan(loanId);
 
         if (loan.getStatus() == LoanStatus.RETURNED) {
+            log.warn("Attempt to return already-returned loan: loanId={}", loanId);
             throw new BusinessException(ErrorCode.LOAN_ALREADY_RETURNED,
                     "Loan " + loanId + " is already returned",
                     HttpStatus.CONFLICT);
@@ -101,6 +108,8 @@ public class LoanServiceImpl implements LoanService {
         }
 
         loanRepository.save(loan);
+        metrics.getLoanReturnedCounter().increment();
+
         reservationService.notifyNextInQueue(book);
 
         log.info("Book returned: loanId={} memberId={} memberType={} overdue={}",
@@ -112,6 +121,7 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     public LoanResponse extendLoan(Long loanId) {
+        log.debug("extendLoan requested: loanId={}", loanId);
         Loan loan = findLoan(loanId);
         Member member = loan.getMember();
         MemberTypeConfig config = props.configFor(member.getType());
@@ -119,15 +129,19 @@ public class LoanServiceImpl implements LoanService {
         LocalDate today = LocalDate.now(clock);
 
         if (loan.getStatus() == LoanStatus.RETURNED) {
+            log.warn("Extend rejected — loan already returned: loanId={}", loanId);
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend a returned loan", HttpStatus.CONFLICT);
         }
         if (loan.isOverdue(today)) {
+            log.warn("Extend rejected — loan overdue: loanId={} dueDate={}", loanId, loan.getDueDate());
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend an overdue loan",
                     HttpStatus.UNPROCESSABLE_ENTITY);
         }
         if (loan.getExtensionCount() >= config.getMaxExtensions()) {
+            log.warn("Extend rejected — max extensions reached: loanId={} count={} memberType={}",
+                    loanId, loan.getExtensionCount(), member.getType());
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Maximum extensions (" + config.getMaxExtensions() +
                             ") reached for member type: " + member.getType(),
@@ -141,6 +155,8 @@ public class LoanServiceImpl implements LoanService {
                         loan.getBook().getId(), ReservationStatus.NOTIFIED);
 
         if (hasQueue) {
+            log.warn("Extend rejected — queue exists for book: loanId={} bookId={}",
+                    loanId, loan.getBook().getId());
             throw new BusinessException(ErrorCode.EXTENSION_NOT_ALLOWED,
                     "Cannot extend: other members are waiting for this book",
                     HttpStatus.CONFLICT);
@@ -149,12 +165,14 @@ public class LoanServiceImpl implements LoanService {
         loan.setDueDate(loan.getDueDate()
                 .plusDays(props.getLoan().getExtensionDays()));
         loan.setExtensionCount(loan.getExtensionCount() + 1);
+        metrics.getLoanExtendedCounter().increment();
 
         log.info("Loan extended: loanId={} memberId={} memberType={} " +
                         "newDueDate={} extensionCount={}",
                 loanId, member.getId(), member.getType(),
                 loan.getDueDate(), loan.getExtensionCount());
 
+        log.info("Loan extended: ...");
         return loanMapper.toResponse(loanRepository.save(loan));
     }
 
@@ -166,16 +184,14 @@ public class LoanServiceImpl implements LoanService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LoanResponse> getMemberLoans(Long memberId) {
-        findMember(memberId);
-        return loanRepository.findByMemberId(memberId)
-                .stream()
-                .map(loanMapper::toResponse)
-                .toList();
+    public PageResponse<LoanResponse> getMemberLoans(Long memberId, Pageable pageable) {
+        return PageResponse.from(loanRepository.findByMemberId(memberId, pageable)
+                .map(loanMapper::toResponse));
     }
 
     @Override
     public LoanResponse issueNotifiedMember(IssueLoanRequest request) {
+        log.info("issueNotifiedMember: memberId={} bookId={}", request.memberId(), request.bookId());
         Member member = findMember(request.memberId());
         Book book = findBook(request.bookId());
 
@@ -189,6 +205,7 @@ public class LoanServiceImpl implements LoanService {
         }
 
         validateMemberCanBorrow(member);
+        validateNoActiveLoanForSameBook(member.getId(), book.getId());
         validateBookReserved(book);
 
         book.setReservedCopies(book.getReservedCopies() - 1);
@@ -257,6 +274,17 @@ public class LoanServiceImpl implements LoanService {
         }
     }
 
+    private void validateNoActiveLoanForSameBook(Long memberId, Long bookId) {
+        boolean alreadyHasActiveLoan =
+                loanRepository.existsByMemberIdAndBookIdAndStatus(memberId, bookId, LoanStatus.ACTIVE);
+
+        if (alreadyHasActiveLoan) {
+            throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_LOAN,
+                    "Member already has an active loan for this book",
+                    HttpStatus.CONFLICT);
+        }
+    }
+
     private void createOrUpdateFine(Loan loan, LocalDate today) {
         MemberTypeConfig config = props.configFor(loan.getMember().getType());
 
@@ -300,6 +328,7 @@ public class LoanServiceImpl implements LoanService {
         fine.setStatus(FineStatus.PENDING);
         fine.setCalculatedUpTo(today);
         fineRepository.save(fine);
+        metrics.getFineCreatedCounter().increment();
 
         log.info("Fine saved on return: loanId={} memberType={} billableDays={} amount={}",
                 loan.getId(), loan.getMember().getType(), billableDays, amount);

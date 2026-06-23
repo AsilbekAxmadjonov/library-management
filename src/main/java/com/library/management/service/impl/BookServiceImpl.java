@@ -1,5 +1,6 @@
 package com.library.management.service.impl;
 
+import com.library.management.config.LibraryMetrics;
 import com.library.management.domain.entity.Author;
 import com.library.management.domain.entity.Book;
 import com.library.management.dto.external.OpenLibraryBookDto;
@@ -36,12 +37,15 @@ public class BookServiceImpl implements BookService {
     private final AuthorRepository authorRepository;
     private final BookMapper bookMapper;
     private final IsbnLookupService isbnLookupService;
+    private final LibraryMetrics metrics;
 
     private static final Set<String> ALLOWED_SORT_FIELDS =
             Set.of("id", "title", "publicationYear", "genre");
 
     @Override
     public BookResponse create(CreateBookRequest request) {
+        log.info("create book requested: authorId={} title={}", request.authorId(), request.title());
+
         Author author = authorRepository.findById(request.authorId())
                 .orElseThrow(() -> BusinessException.notFound("Author", request.authorId()));
 
@@ -50,6 +54,7 @@ public class BookServiceImpl implements BookService {
         book.setAvailableCopies(request.totalCopies());
 
         Book saved = bookRepository.save(book);
+        metrics.getBookCreatedCounter().increment();
         log.info("Book created: id={} title={}", saved.getId(), saved.getTitle());
         return bookMapper.toResponse(saved);
     }
@@ -57,7 +62,15 @@ public class BookServiceImpl implements BookService {
     @Override
     @Transactional(readOnly = true)
     public BookResponse getById(Long id) {
+        log.debug("getById book: id={}", id);
         return bookMapper.toResponse(findById(id));
+    }
+
+    @Override
+    public PageResponse<BookResponse> getAll(Pageable pageable) {
+        log.debug("getAll books: page={} size={}", pageable.getPageNumber(), pageable.getPageSize());
+        return PageResponse.from(bookRepository.findAll(pageable)
+                .map(bookMapper::toResponse));
     }
 
     @Override
@@ -65,7 +78,10 @@ public class BookServiceImpl implements BookService {
     public PageResponse<BookResponse> search(String title, String authorName,
                                              String genre, int page, int size,
                                              String sortBy) {
+        log.debug("search books: title={} authorName={} genre={} sortBy={}", title, authorName, genre, sortBy);
+
         if (!ALLOWED_SORT_FIELDS.contains(sortBy)) {
+            log.warn("Invalid sort field requested: sortBy={} allowed={}", sortBy, ALLOWED_SORT_FIELDS);
             throw new BusinessException(
                     ErrorCode.VALIDATION_ERROR,
                     "Invalid sort field '" + sortBy + "'. Allowed values: " + ALLOWED_SORT_FIELDS,
@@ -75,11 +91,13 @@ public class BookServiceImpl implements BookService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         Page<Book> result = bookRepository.searchBooks(title, authorName, genre, pageable);
+        log.debug("search books result: total={}", result.getTotalElements());
         return PageResponse.from(result.map(bookMapper::toResponse));
     }
 
     @Override
     public BookResponse update(Long id, CreateBookRequest request) {
+        log.info("update book requested: id={}", id);
         Book book = findById(id);
 
         int delta = request.totalCopies() - book.getTotalCopies();
@@ -91,12 +109,16 @@ public class BookServiceImpl implements BookService {
         bookMapper.updateEntity(request, book);
         book.setAuthor(author);
 
-        return bookMapper.toResponse(bookRepository.save(book));
+        Book saved = bookRepository.save(book);
+        log.info("Book updated: id={} title={} newTotalCopies={}", saved.getId(), saved.getTitle(), saved.getTotalCopies());
+        return bookMapper.toResponse(saved);
     }
 
     @Override
     public void delete(Long id) {
+        log.info("delete book requested: id={}", id);
         bookRepository.delete(findById(id));
+        metrics.getBookDeletedCounter().increment();
         log.info("Book deleted: id={}", id);
     }
 
@@ -107,7 +129,9 @@ public class BookServiceImpl implements BookService {
 
     @Override
     public BookResponse createByIsbn(String isbn, Long authorId, Integer totalCopies) {
+        log.info("createByIsbn requested: isbn={} authorId={}", isbn, authorId);
         if (bookRepository.existsByIsbn(isbn)) {
+            log.warn("Duplicate ISBN rejected: isbn={}", isbn);
             throw new BusinessException(ErrorCode.DUPLICATE_RESOURCE,
                     "A book with ISBN " + isbn + " already exists in the library",
                     HttpStatus.CONFLICT);
@@ -119,6 +143,7 @@ public class BookServiceImpl implements BookService {
         OpenLibraryBookDto dto = isbnLookupService.fetchByIsbn(isbn);
 
         if (dto == null) {
+            log.warn("ISBN lookup returned null: isbn={}", isbn);
             throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND,
                     "No book found for ISBN: " + isbn +
                             ". Please use the manual create endpoint instead.",
@@ -136,6 +161,7 @@ public class BookServiceImpl implements BookService {
         book.setAvailableCopies(book.getTotalCopies());
 
         Book saved = bookRepository.save(book);
+        metrics.getBookCreatedCounter().increment();
 
         log.info("Book created via ISBN lookup: id={} title='{}' isbn={}",
                 saved.getId(), saved.getTitle(), isbn);

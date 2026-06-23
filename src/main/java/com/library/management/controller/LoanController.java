@@ -1,14 +1,18 @@
 package com.library.management.controller;
 
 import com.library.management.dto.request.IssueLoanRequest;
+import com.library.management.dto.response.BaseResponse;
 import com.library.management.dto.response.LoanResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.service.LoanService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,24 +30,23 @@ public class LoanController {
             summary = "Issue a book to a member",
             description = "Validates member status, loan limit, fine threshold and book availability"
     )
-    public ResponseEntity<LoanResponse> issue(
-            @Valid @RequestBody IssueLoanRequest request) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(loanService.issueLoan(request));
+    @ResponseStatus(HttpStatus.CREATED)
+    public BaseResponse<LoanResponse> issue(@Valid @RequestBody IssueLoanRequest request) {
+        return BaseResponse.success(loanService.issueLoan(request));
     }
 
     @GetMapping("/{loan_id}")
     @Operation(summary = "Get loan by ID")
-    public ResponseEntity<LoanResponse> getById(@PathVariable Long loan_id) {
-        return ResponseEntity.ok(loanService.getById(loan_id));
+    public BaseResponse<LoanResponse> getById(@PathVariable Long loan_id) {
+        return BaseResponse.success(loanService.getById(loan_id));
     }
 
     @GetMapping("/member/{memberId}")
     @Operation(summary = "Get all loans for a member")
-    public ResponseEntity<List<LoanResponse>> getMemberLoans(
-            @PathVariable Long memberId) {
-        return ResponseEntity.ok(loanService.getMemberLoans(memberId));
+    public BaseResponse<PageResponse<LoanResponse>> getMemberLoans(
+            @PathVariable Long memberId,
+            @ParameterObject @PageableDefault(size = 10, sort = "id") Pageable pageable) {
+        return BaseResponse.success(loanService.getMemberLoans(memberId, pageable));
     }
 
     @PatchMapping("/{loan_id}/return")
@@ -51,8 +54,8 @@ public class LoanController {
             summary = "Return a book",
             description = "Closes the loan, restores book copy count, calculates fine if overdue, notifies next in reservation queue"
     )
-    public ResponseEntity<LoanResponse> returnBook(@PathVariable Long loan_id) {
-        return ResponseEntity.ok(loanService.returnBook(loan_id));
+    public BaseResponse<LoanResponse> returnBook(@PathVariable Long loan_id) {
+        return BaseResponse.success(loanService.returnBook(loan_id));
     }
 
     @PatchMapping("/{loan_id}/extend")
@@ -60,8 +63,8 @@ public class LoanController {
             summary = "Extend loan due date",
             description = "Not allowed if overdue, max extensions reached, or there is a reservation queue for this book"
     )
-    public ResponseEntity<LoanResponse> extend(@PathVariable Long loan_id) {
-        return ResponseEntity.ok(loanService.extendLoan(loan_id));
+    public BaseResponse<LoanResponse> extend(@PathVariable Long loan_id) {
+        return BaseResponse.success(loanService.extendLoan(loan_id));
     }
 
     @PostMapping("/issue-notified-member")
@@ -69,12 +72,8 @@ public class LoanController {
             summary = "Issue a book to a notified member",
             description = "Validates member status, loan limit, fine threshold and book availability"
     )
-    public ResponseEntity<LoanResponse> issueNotifiedMember(
-            @Valid @RequestBody IssueLoanRequest request
-    ) {
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(loanService.issueNotifiedMember(request));
+    @ResponseStatus(HttpStatus.CREATED)
+    public BaseResponse<LoanResponse> issueNotifiedMember(@Valid @RequestBody IssueLoanRequest request) {
+        return BaseResponse.success(loanService.issueNotifiedMember(request));
     }
 }
-

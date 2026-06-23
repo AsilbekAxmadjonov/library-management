@@ -3,6 +3,7 @@ package com.library.management.service;
 import com.library.management.domain.entity.Author;
 import com.library.management.dto.request.CreateAuthorRequest;
 import com.library.management.dto.response.AuthorResponse;
+import com.library.management.dto.response.PageResponse;
 import com.library.management.exception.BusinessException;
 import com.library.management.exception.ErrorCode;
 import com.library.management.mapper.AuthorMapper;
@@ -15,6 +16,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -46,7 +51,6 @@ class AuthorServiceTest {
 
         authorResponse = new AuthorResponse(1L, "Robert", "Martin", null, null);
     }
-
 
     @Test
     @DisplayName("create — happy path: author saved and response returned")
@@ -103,15 +107,21 @@ class AuthorServiceTest {
     }
 
     @Test
-    @DisplayName("getAll — returns mapped list")
-    void getAll_returnsList() {
-        when(authorRepository.findAll()).thenReturn(List.of(author));
+    @DisplayName("getAll — returns paged response")
+    void getAll_returnsPagedResponse() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Author> page = new PageImpl<>(List.of(author), pageable, 1);
+
+        when(authorRepository.findAll(pageable)).thenReturn(page);
         when(authorMapper.toResponse(author)).thenReturn(authorResponse);
 
-        List<AuthorResponse> result = authorService.getAll();
+        PageResponse<AuthorResponse> result = authorService.getAll(pageable);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).lastName()).isEqualTo("Martin");
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).lastName()).isEqualTo("Martin");
+        assertThat(result.totalElements()).isEqualTo(1);
+        assertThat(result.page()).isEqualTo(0);
+        assertThat(result.size()).isEqualTo(10);
     }
 
     @Test
